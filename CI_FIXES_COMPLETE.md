@@ -49,11 +49,28 @@ struct CapturedRequest: Sendable {
 2. **ErrorHandlingAndRateLimitingTests.swift**:
    - Fixed optional chaining on non-optional URL property
 
+3. **LiveAPIIntegrationTests.swift** (both DiscogsTests and LiveTests):
+   - Added comprehensive CI/CD environment detection
+   - Automatically skips live API tests in CI/CD environments
+   - Prevents unnecessary API calls and rate limiting during automated builds
+
+## CI/CD Environment Detection
+Both live test suites now automatically detect and skip tests in the following CI/CD environments:
+- GitHub Actions (`GITHUB_ACTIONS`)
+- Travis CI (`TRAVIS`) 
+- CircleCI (`CIRCLECI`)
+- Jenkins (`JENKINS_URL`)
+- GitLab CI (`GITLAB_CI`)
+- Buildkite (`BUILDKITE`)
+- Azure DevOps (`TF_BUILD`)
+- Generic CI environments (`CI`)
+
 ## Verification
 - All 221 tests passing
 - No compilation errors
 - Cross-platform compatibility maintained
-- Live API tests continue to work correctly
+- Live API tests automatically skip in CI/CD environments
+- No rate limiting concerns for automated builds
 
 ## Status: ✅ COMPLETE
-All CI failures have been resolved and the test suite is fully functional.
+All CI failures have been resolved, live tests properly skip in CI/CD, and the test suite is fully functional across all environments.
