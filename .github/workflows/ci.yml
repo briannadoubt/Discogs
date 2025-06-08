@@ -29,17 +29,60 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    # Setup Swift on Ubuntu
+    # Setup Swift on Ubuntu (manual installation to avoid GPG issues)
     - name: Setup Swift (Ubuntu)
       if: matrix.os == 'ubuntu-latest'
-      uses: swift-actions/setup-swift@v2
-      with:
-        swift-version: ${{ matrix.swift-version }}
+      run: |
+        # Install dependencies
+        sudo apt-get update
+        sudo apt-get install -y \
+          binutils \
+          git \
+          gnupg2 \
+          libc6-dev \
+          libcurl4-openssl-dev \
+          libedit2 \
+          libgcc-9-dev \
+          libpython3.8 \
+          libsqlite3-0 \
+          libstdc++-9-dev \
+          libxml2-dev \
+          libz3-dev \
+          pkg-config \
+          tzdata \
+          unzip \
+          zlib1g-dev
+        
+        # Download and install Swift 6.1
+        SWIFT_VERSION="6.1"
+        SWIFT_PLATFORM="ubuntu2404"
+        SWIFT_BRANCH="swift-${SWIFT_VERSION}-release"
+        SWIFT_URL="https://download.swift.org/${SWIFT_BRANCH}/ubuntu2404/swift-${SWIFT_VERSION}-RELEASE/swift-${SWIFT_VERSION}-RELEASE-${SWIFT_PLATFORM}.tar.gz"
+        
+        echo "Downloading Swift ${SWIFT_VERSION} from ${SWIFT_URL}"
+        curl -L "${SWIFT_URL}" -o swift.tar.gz
+        
+        # Extract Swift
+        sudo tar -xzf swift.tar.gz -C /opt/
+        sudo mv /opt/swift-${SWIFT_VERSION}-RELEASE-${SWIFT_PLATFORM} /opt/swift
+        
+        # Add Swift to PATH
+        echo "/opt/swift/usr/bin" >> $GITHUB_PATH
+        
+        # Verify installation
+        /opt/swift/usr/bin/swift --version
 
     # macOS comes with Swift pre-installed, but we'll verify the version
     - name: Check Swift version (macOS)
       if: matrix.os == 'macos-latest'
       run: swift --version
+
+    # Verify Swift installation on Ubuntu
+    - name: Verify Swift installation (Ubuntu)
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        swift --version
+        which swift
 
     - name: Cache Swift packages
       uses: actions/cache@v4
