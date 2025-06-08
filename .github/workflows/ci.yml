@@ -18,7 +18,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest, macos-14]
     
     steps:
     - name: Checkout code
@@ -70,10 +70,16 @@ jobs:
 
     # Setup Swift on macOS using the action
     - name: Setup Swift (macOS)
-      if: matrix.os == 'macos-latest'
+      if: matrix.os == 'macos-14'
       uses: swift-actions/setup-swift@v2.3.0
       with:
         swift-version: ${{ env.SWIFT_VERSION }}
+
+    - name: Install Xcode Command Line Tools (macOS)
+      if: matrix.os == 'macos-14'
+      run: |
+        sudo xcode-select --install || true
+        sudo xcode-select --reset || true
 
     - name: Verify Swift installation
       run: |
@@ -101,7 +107,7 @@ jobs:
   # ================================
   spm-validation:
     name: SPM Package Validation
-    runs-on: macos-latest
+    runs-on: macos-14
     
     steps:
     - name: Checkout code
@@ -126,7 +132,7 @@ jobs:
   # ================================
   code-quality:
     name: Code Quality Analysis
-    runs-on: macos-latest
+    runs-on: macos-14
     
     steps:
     - name: Checkout code
@@ -162,7 +168,7 @@ jobs:
   # ================================
   platform-tests:
     name: Platform Tests (${{ matrix.platform }})
-    runs-on: macos-latest
+    runs-on: macos-14
     strategy:
       matrix:
         platform: [iOS, macOS, tvOS, watchOS]
@@ -210,7 +216,7 @@ jobs:
   # ================================
   integration-tests:
     name: Integration Tests (Mock)
-    runs-on: macos-latest
+    runs-on: macos-14
     
     steps:
     - name: Checkout code
@@ -239,7 +245,7 @@ jobs:
   # ================================
   live-api-tests:
     name: Live API Tests
-    runs-on: macos-latest
+    runs-on: macos-14
     # Only run on push to main branch or if manually triggered
     if: (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
     
@@ -270,7 +276,7 @@ jobs:
   # ================================
   documentation:
     name: Documentation Build & Validation
-    runs-on: macos-latest
+    runs-on: macos-14
     
     steps:
     - name: Checkout code
@@ -378,7 +384,7 @@ jobs:
   # ================================
   examples:
     name: Example Compilation
-    runs-on: macos-latest
+    runs-on: macos-14
     
     steps:
     - name: Checkout code
@@ -418,7 +424,7 @@ jobs:
   # ================================
   scripts:
     name: Test Scripts
-    runs-on: macos-latest
+    runs-on: macos-14
     
     steps:
     - name: Checkout code
@@ -445,7 +451,7 @@ jobs:
   # ================================
   security:
     name: Security Audit
-    runs-on: macos-latest
+    runs-on: macos-14
     
     steps:
     - name: Checkout code
@@ -475,7 +481,7 @@ jobs:
   # ================================
   release-check:
     name: Release Readiness
-    runs-on: macos-latest
+    runs-on: macos-14
     if: github.ref == 'refs/heads/main'
     needs: [build-and-test, spm-validation, integration-tests]
     
@@ -509,7 +515,7 @@ jobs:
   # ================================
   summary:
     name: CI Summary
-    runs-on: macos-latest
+    runs-on: macos-14
     needs: [build-and-test, spm-validation, code-quality, integration-tests]
     if: always()
     
