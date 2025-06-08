@@ -32,7 +32,7 @@ jobs:
     # Setup Swift on Ubuntu
     - name: Setup Swift (Ubuntu)
       if: matrix.os == 'ubuntu-latest'
-      uses: swift-actions/setup-swift@v1
+      uses: swift-actions/setup-swift@v2
       with:
         swift-version: ${{ matrix.swift-version }}
 
