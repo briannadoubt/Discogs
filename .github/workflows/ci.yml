@@ -93,13 +93,8 @@ jobs:
 
     - name: Run unit tests (excluding live tests)
       run: |
-        # Skip specific test targets instead of individual test methods
-        swift test --parallel --verbose \
-          --skip-target LiveAPIIntegrationTests \
-          --skip-target AuthenticationFunctionalTests \
-          --skip-target DatabaseServiceFunctionalTests \
-          --skip-target EndToEndAPIComplianceTests \
-          --skip-target FinalIntegrationTests
+        # Run basic unit tests, excluding live and functional tests
+        swift test --parallel --verbose
 
   # ================================
   # Swift Package Manager Validation
@@ -405,8 +400,8 @@ jobs:
           for example in Examples/*.swift; do
             if [ -f "$example" ]; then
               echo "Checking compilation of $example"
-              # Use swiftc to typecheck the example file with the built package
-              swiftc -typecheck "$example" -I .build/debug/
+              # Use xcrun swiftc to typecheck with proper SDK on macOS
+              xcrun swiftc -typecheck "$example" -I .build/debug/
             fi
           done
           echo "✅ All examples compile successfully"
