@@ -7,7 +7,7 @@ on:
     branches: [ main, develop ]
 
 env:
-  SWIFT_VERSION: '6.1'
+  SWIFT_VERSION: '6.0'
 
 jobs:
   # ================================
@@ -51,7 +51,7 @@ jobs:
           zlib1g-dev
         
         # Use official Swift.org installer for Ubuntu
-        SWIFT_VERSION="6.1"
+        SWIFT_VERSION="${{ env.SWIFT_VERSION }}"
         SWIFT_RELEASE="swift-${SWIFT_VERSION}-RELEASE"
         UBUNTU_VERSION="22.04"
         SWIFT_URL="https://download.swift.org/swift-${SWIFT_VERSION}-release/ubuntu${UBUNTU_VERSION//.}/swift-${SWIFT_VERSION}-RELEASE/swift-${SWIFT_VERSION}-RELEASE-ubuntu${UBUNTU_VERSION}.tar.gz"
@@ -392,7 +392,7 @@ jobs:
     - name: Setup Swift
       uses: swift-actions/setup-swift@v2.3.0
       with:
-        swift-version: '6.1'
+        swift-version: ${{ env.SWIFT_VERSION }}
 
     - name: Build package first
       run: swift build
@@ -405,8 +405,8 @@ jobs:
           for example in Examples/*.swift; do
             if [ -f "$example" ]; then
               echo "Checking compilation of $example"
-              # Use swift to typecheck the example file with the built package
-              swift -typecheck "$example" -I .build/debug/
+              # Use swiftc to typecheck the example file with the built package
+              swiftc -typecheck "$example" -I .build/debug/
             fi
           done
           echo "✅ All examples compile successfully"

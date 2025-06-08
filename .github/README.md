@@ -116,7 +116,7 @@ Add environment variables in the workflow `env` section:
 
 ```yaml
 env:
-  SWIFT_VERSION: '6.1'
+  SWIFT_VERSION: '6.0'
   YOUR_CUSTOM_VAR: 'value'
 ```
 

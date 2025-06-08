@@ -9,7 +9,7 @@
 [![Documentation](https://github.com/briannadoubt/Discogs/actions/workflows/documentation.yml/badge.svg)](https://github.com/briannadoubt/Discogs/actions/workflows/documentation.yml)
 [![Security](https://github.com/briannadoubt/Discogs/actions/workflows/security.yml/badge.svg)](https://github.com/briannadoubt/Discogs/actions/workflows/security.yml)
 [![Maintenance](https://github.com/briannadoubt/Discogs/actions/workflows/maintenance.yml/badge.svg)](https://github.com/briannadoubt/Discogs/actions/workflows/maintenance.yml)
-[![Swift](https://img.shields.io/badge/swift-6.1-orange.svg)](https://swift.org)
+[![Swift](https://img.shields.io/badge/swift-6.0-orange.svg)](https://swift.org)
 [![Platforms](https://img.shields.io/badge/platforms-iOS%20%7C%20macOS%20%7C%20tvOS%20%7C%20watchOS%20%7C%20visionOS%20%7C%20Linux-lightgrey.svg)](https://swift.org)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![SPM](https://img.shields.io/badge/Swift%20Package%20Manager-compatible-brightgreen.svg)](https://github.com/apple/swift-package-manager)
@@ -63,7 +63,7 @@
 
 ## 🚀 Overview
 
-**Discogs Swift SDK** is a modern, comprehensive Swift package that provides seamless access to the [Discogs API](https://www.discogs.com/developers). Built with Swift 6.1 and designed for the modern Swift ecosystem, it offers a type-safe, async/await interface to interact with the world's largest music database, marketplace, and user collections.
+**Discogs Swift SDK** is a modern, comprehensive Swift package that provides seamless access to the [Discogs API](https://www.discogs.com/developers). Built with Swift 6.0 and designed for the modern Swift ecosystem, it offers a type-safe, async/await interface to interact with the world's largest music database, marketplace, and user collections.
 
 ### 🎯 Why Choose Discogs Swift SDK?
 
@@ -79,7 +79,7 @@
 ## Features
 
 - ✅ **Complete API Coverage**: Database, Marketplace, Collection, User, Search, and Wantlist services
-- ✅ **Modern Swift**: Built with Swift 6.1, async/await, actors, and Sendable protocols
+- ✅ **Modern Swift**: Built with Swift 6.0, async/await, actors, and Sendable protocols
 - ✅ **Multi-Platform**: Support for iOS 15+, macOS 12+, tvOS 15+, watchOS 8+, visionOS 1+, and Linux
 - ✅ **Type Safety**: Comprehensive data models with Codable support
 - ✅ **Authentication**: Personal Access Token and OAuth support
@@ -122,7 +122,7 @@ github "briannadoubt/Discogs" ~> 1.0
 ### System Requirements
 
 - **Xcode**: 15.0+
-- **Swift**: 6.1+
+- **Swift**: 6.0+
 - **iOS**: 15.0+
 - **macOS**: 12.0+
 - **tvOS**: 15.0+
@@ -807,7 +807,7 @@ let results = try await discogs.search.releases(query: "query")
 
 ## Requirements
 
-- **Swift**: 6.1 or later
+- **Swift**: 6.0 or later
 - **iOS**: 15.0 or later
 - **macOS**: 12.0 or later
 - **tvOS**: 15.0 or later
@@ -900,7 +900,7 @@ SOFTWARE.
 - ✅ **Enterprise-grade CI/CD pipeline** with 4 automated workflows
 - ✅ **Professional documentation** with interactive examples
 - ✅ **Zero external dependencies** - uses only Foundation framework
-- ✅ **Full async/await support** with Swift 6.1 compatibility
+- ✅ **Full async/await support** with Swift 6.0 compatibility
 - ✅ **Built-in rate limiting** and robust error handling
 - ✅ **Security audits** and vulnerability scanning
 - ✅ **Cross-platform testing** and validation

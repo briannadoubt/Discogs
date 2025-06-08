@@ -12,7 +12,7 @@ on:
         type: string
 
 env:
-  SWIFT_VERSION: '6.1'
+  SWIFT_VERSION: '6.0'
 
 jobs:
   # ================================
