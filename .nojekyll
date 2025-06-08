@@ -1,0 +1,15 @@
+# Documentation site for the Discogs Swift SDK
+# Generated automatically by GitHub Actions using Swift-DocC
+# Available at: https://briannadoubt.github.io/Discogs
+
+# Configuration for GitHub Pages deployment
+# This file helps GitHub understand the documentation structure
+
+# The documentation is built and deployed using GitHub Actions
+# Source: .github/workflows/documentation.yml
+# Static site generator: Swift-DocC with static hosting transformation
+
+# For more information about the Discogs Swift SDK:
+# - Repository: https://github.com/briannadoubt/Discogs
+# - Package documentation: Sources/Discogs/Documentation.docc/
+# - API Reference: Generated from source code comments
