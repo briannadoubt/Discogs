@@ -26,7 +26,10 @@ let package = Package(
         ),
         .testTarget(
             name: "DiscogsTests",
-            dependencies: ["Discogs"]
+            dependencies: ["Discogs"],
+            resources: [
+                .copy("LIVE_TESTS_README.md")
+            ]
         ),
     ]
 )

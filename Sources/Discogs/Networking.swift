@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 
 /// HTTP methods supported by the Discogs API
 /// 
@@ -149,21 +152,48 @@ extension Discogs {
             throw DiscogsError.networkError(error)
         }
         
+        // Handle HTTPURLResponse with Linux Foundation compatibility
+        #if canImport(FoundationNetworking)
+        // On Linux, URLResponse might be returned as AnyObject, so we need explicit casting
+        var httpResponse: HTTPURLResponse
+        if let directResponse = response as? HTTPURLResponse {
+            httpResponse = directResponse
+        } else if let anyResponse = response as AnyObject as? HTTPURLResponse {
+            httpResponse = anyResponse
+        } else {
+            throw DiscogsError.invalidResponse
+        }
+        
+        // Extract values with explicit type conversion for Linux compatibility
+        let statusCode = Int(httpResponse.statusCode)
+        let headerFields = httpResponse.allHeaderFields
+        
+        // Convert headers to [AnyHashable: Any] ensuring compatibility
+        var allHeaderFields: [AnyHashable: Any] = [:]
+        for (key, value) in headerFields {
+            allHeaderFields[key] = value
+        }
+        #else
+        // macOS/iOS standard behavior
         guard let httpResponse = response as? HTTPURLResponse else {
             throw DiscogsError.invalidResponse
         }
         
+        let statusCode = httpResponse.statusCode
+        let allHeaderFields = httpResponse.allHeaderFields
+        #endif
+        
         // Update rate limit information
-        self._rateLimit = RateLimit(headers: httpResponse.allHeaderFields)
+        self._rateLimit = RateLimit(headers: allHeaderFields)
         
         // Handle rate limiting
-        if httpResponse.statusCode == 429 {
+        if statusCode == 429 {
             throw DiscogsError.rateLimitExceeded
         }
         
         // Handle other error status codes
-        guard (200...299).contains(httpResponse.statusCode) else {
-            throw DiscogsError.httpError(httpResponse.statusCode)
+        guard (200...299).contains(statusCode) else {
+            throw DiscogsError.httpError(statusCode)
         }
         
         // Attempt to decode the response
