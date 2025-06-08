@@ -69,6 +69,13 @@ jobs:
         
         # Verify installation
         swift --version
+        
+        # Alternative manual installation method (if Swiftly fails):
+        # SWIFT_URL="https://download.swift.org/swift-6.1.2-release/ubuntu2404/swift-6.1.2-RELEASE/swift-6.1.2-RELEASE-ubuntu24.04.tar.gz"
+        # curl -L "${SWIFT_URL}" -o swift.tar.gz
+        # sudo tar -xzf swift.tar.gz -C /opt/
+        # sudo mv /opt/swift-6.1.2-RELEASE-ubuntu24.04 /opt/swift
+        # echo "/opt/swift/usr/bin" >> $GITHUB_PATH
 
     # macOS comes with Swift pre-installed, but we'll verify the version
     - name: Setup Swift (macOS)
