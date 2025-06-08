@@ -18,17 +18,16 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-14]
+        os: [ubuntu-22.04, macos-14]
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4.2.2
 
-    # Install Swift manually on Ubuntu (more reliable than GitHub Action)
     - name: Setup Swift (Ubuntu)
-      if: matrix.os == 'ubuntu-latest'
+      if: matrix.os == 'ubuntu-22.04'
       run: |
-        echo "GitHub Action failed, trying manual installation..."
+        echo "Setting up Swift on Ubuntu 22.04..."
         
         # Install system dependencies for Swift
         sudo apt-get update
@@ -40,7 +39,7 @@ jobs:
           libcurl4-openssl-dev \
           libedit2 \
           libgcc-s1 \
-          libpython3.12 \
+          libpython3.10 \
           libsqlite3-0 \
           libstdc++6 \
           libxml2-dev \
@@ -48,25 +47,38 @@ jobs:
           pkg-config \
           tzdata \
           unzip \
-          zlib1g-dev
+          zlib1g-dev \
+          lsb-release \
+          wget
         
-        # Use official Swift.org installer for Ubuntu
+        # Use official Swift.org installer for Ubuntu 22.04
         SWIFT_VERSION="${{ env.SWIFT_VERSION }}"
-        SWIFT_RELEASE="swift-${SWIFT_VERSION}-RELEASE"
-        UBUNTU_VERSION="22.04"
-        SWIFT_URL="https://download.swift.org/swift-${SWIFT_VERSION}-release/ubuntu${UBUNTU_VERSION//.}/swift-${SWIFT_VERSION}-RELEASE/swift-${SWIFT_VERSION}-RELEASE-ubuntu${UBUNTU_VERSION}.tar.gz"
+        SWIFT_UBUNTU_VERSION="22.04"
+        SWIFT_URL="https://download.swift.org/swift-${SWIFT_VERSION}-release/ubuntu${SWIFT_UBUNTU_VERSION//.}/swift-${SWIFT_VERSION}-RELEASE/swift-${SWIFT_VERSION}-RELEASE-ubuntu${SWIFT_UBUNTU_VERSION}.tar.gz"
+        
+        echo "Downloading Swift from: $SWIFT_URL"
         
         # Download and install Swift
-        wget $SWIFT_URL
-        tar xzf swift-${SWIFT_VERSION}-RELEASE-ubuntu${UBUNTU_VERSION}.tar.gz
-        sudo mv swift-${SWIFT_VERSION}-RELEASE-ubuntu${UBUNTU_VERSION} /opt/swift
+        if ! wget -q "$SWIFT_URL"; then
+          echo "❌ Failed to download Swift ${SWIFT_VERSION} for Ubuntu 22.04"
+          echo "This might indicate Swift ${SWIFT_VERSION} isn't available for Ubuntu 22.04 yet"
+          exit 1
+        fi
+        
+        echo "✅ Swift download successful"
+        
+        # Extract and install
+        tar xzf swift-${SWIFT_VERSION}-RELEASE-ubuntu${SWIFT_UBUNTU_VERSION}.tar.gz
+        sudo mv swift-${SWIFT_VERSION}-RELEASE-ubuntu${SWIFT_UBUNTU_VERSION} /opt/swift
         
         # Add Swift to PATH
         echo "/opt/swift/usr/bin" >> $GITHUB_PATH
         export PATH="/opt/swift/usr/bin:$PATH"
         
         # Verify installation
+        echo "🔍 Verifying Swift installation..."
         swift --version
+        echo "✅ Swift installed successfully at $(which swift)"
 
     # Setup Swift on macOS using the action
     - name: Setup Swift (macOS)
