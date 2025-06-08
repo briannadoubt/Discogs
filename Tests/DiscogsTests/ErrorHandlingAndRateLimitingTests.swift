@@ -33,7 +33,7 @@ struct ErrorHandlingAndRateLimitingTests {
         
         // Then
         let request = try #require(await mockClient.lastRequest)
-        #expect(request.url?.path.contains("releases/12345") == true)
+        #expect(request.url.path.contains("releases/12345") == true)
         
         // Verify rate limit information is captured
         // This would typically be captured by the networking layer

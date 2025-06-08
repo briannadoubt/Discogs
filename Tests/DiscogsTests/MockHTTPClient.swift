@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 @testable import Discogs
 
 // Define a local MockError to avoid dependency on DiscogsError definition during this refactoring
@@ -6,6 +9,21 @@ enum MockClientError: Error, Sendable {
     case mockNotConfigured(endpoint: String, method: String)
     case invalidURL(String)
     case forcedMockError
+}
+
+// Custom request capture that mimics the interface tests expect
+struct CapturedRequest: Sendable {
+    let url: URL
+    let method: String
+    let headers: [String: String]
+    let body: [String: any Sendable]?
+    
+    init(url: URL, method: String, headers: [String: String], body: [String: any Sendable]?) {
+        self.url = url
+        self.method = method
+        self.headers = headers
+        self.body = body
+    }
 }
 
 /// Mock HTTP client for testing that conforms to HTTPClientProtocol
@@ -89,14 +107,46 @@ actor MockHTTPClient: HTTPClientProtocol {
         }
     }
     
-    var lastRequest: (url: URL, method: String, headers: [String: String], body: [String: any Sendable]?)? {
-        get async { // This getter remains async as it accesses multiple actor-isolated properties
+    // Fix: Remove async getter for noncopyable type and use a method instead
+    func getLastRequest() -> (url: URL, method: String, headers: [String: String], body: [String: any Sendable]?)? {
+        guard let lastURL = self.lastRequestURL,
+              let lastMethod = self.lastRequestMethod,
+              let lastHeaders = self.lastRequestHeaders else {
+            return nil
+        }
+        return (url: lastURL, method: lastMethod, headers: lastHeaders, body: self.lastRequestBody)
+    }
+    
+    // URLRequest convenience method for backward compatibility with existing tests
+    func getLastURLRequest() -> URLRequest? {
+        guard let request = getLastRequest() else { return nil }
+        
+        var urlRequest = URLRequest(url: request.url)
+        urlRequest.httpMethod = request.method
+        urlRequest.allHTTPHeaderFields = request.headers
+        
+        // Convert body to Data if needed
+        if let body = request.body {
+            do {
+                urlRequest.httpBody = try JSONSerialization.data(withJSONObject: body)
+            } catch {
+                // If serialization fails, create empty data
+                urlRequest.httpBody = Data()
+            }
+        }
+        
+        return urlRequest
+    }
+    
+    // Return CapturedRequest for tests that expect custom request interface
+    var lastRequest: CapturedRequest? {
+        get { 
             guard let lastURL = self.lastRequestURL,
                   let lastMethod = self.lastRequestMethod,
                   let lastHeaders = self.lastRequestHeaders else {
                 return nil
             }
-            return (url: lastURL, method: lastMethod, headers: lastHeaders, body: self.lastRequestBody)
+            return CapturedRequest(url: lastURL, method: lastMethod, headers: lastHeaders, body: self.lastRequestBody)
         }
     }
     
@@ -299,25 +349,15 @@ actor MockDiscogsClient: HTTPClientProtocol {
         get async { await mockHTTPClient.mockHeaders }
     }
     
-    var lastRequest: URLRequest? {
+    var lastRequest: CapturedRequest? {
         get async {
-            guard let request = await mockHTTPClient.lastRequest else { return nil }
-            
-            var urlRequest = URLRequest(url: request.url)
-            urlRequest.httpMethod = request.method
-            urlRequest.allHTTPHeaderFields = request.headers
-            
-            // Convert body to Data if needed
-            if let body = request.body {
-                do {
-                    urlRequest.httpBody = try JSONSerialization.data(withJSONObject: body)
-                } catch {
-                    // If serialization fails, create empty data
-                    urlRequest.httpBody = Data()
-                }
+            guard let lastURL = await mockHTTPClient.lastRequestURL,
+                  let lastMethod = await mockHTTPClient.lastRequestMethod,
+                  let lastHeaders = await mockHTTPClient.lastRequestHeaders else {
+                return nil
             }
-            
-            return urlRequest
+            let lastBody = await mockHTTPClient.lastRequestBody
+            return CapturedRequest(url: lastURL, method: lastMethod, headers: lastHeaders, body: lastBody)
         }
     }
     
@@ -377,6 +417,18 @@ actor MockDiscogsClient: HTTPClientProtocol {
     
     var lastRequestURL: URL? {
         get async { await mockHTTPClient.lastRequestURL }
+    }
+    
+    var lastRequestMethod: String? {
+        get async { await mockHTTPClient.lastRequestMethod }
+    }
+    
+    var lastRequestHeaders: [String: String]? {
+        get async { await mockHTTPClient.lastRequestHeaders }
+    }
+    
+    var lastRequestBody: [String: any Sendable]? {
+        get async { await mockHTTPClient.lastRequestBody }
     }
     
     func setMockError(_ error: Error) async {
