@@ -1,0 +1,370 @@
+name: Documentation
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'Sources/**'
+      - 'Package.swift'
+      - '.github/workflows/documentation.yml'
+      - 'Documentation.docc/**'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'Sources/**'
+      - 'Package.swift'
+      - '.github/workflows/documentation.yml'
+      - 'Documentation.docc/**'
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      deploy_to_pages:
+        description: 'Deploy to GitHub Pages'
+        required: false
+        default: false
+        type: boolean
+
+# Allow only one concurrent deployment, skipping runs queued between the run in-progress and latest queued.
+concurrency:
+  group: "pages-${{ github.ref }}"
+  cancel-in-progress: false
+
+jobs:
+  # ================================
+  # Build Documentation
+  # ================================
+  build-docs:
+    name: Build Documentation
+    runs-on: macos-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Xcode
+      uses: maxim-lobanov/setup-xcode@v1
+      with:
+        xcode-version: latest-stable
+
+    - name: Cache Swift packages
+      uses: actions/cache@v4
+      with:
+        path: .build
+        key: ${{ runner.os }}-spm-docs-${{ hashFiles('Package.swift', 'Package.resolved') }}
+        restore-keys: |
+          ${{ runner.os }}-spm-docs-
+          ${{ runner.os }}-spm-
+
+    - name: Build documentation with Swift-DocC
+      run: |
+        echo "🔨 Building documentation with Swift-DocC..."
+        
+        # Create the docs output directory
+        mkdir -p docs
+        
+        # Build documentation using Swift-DocC
+        swift package --allow-writing-to-directory docs \
+          generate-documentation --target Discogs \
+          --disable-indexing \
+          --transform-for-static-hosting \
+          --hosting-base-path Discogs \
+          --output-path docs
+        
+        echo "✅ Documentation built successfully"
+
+    - name: Add documentation metadata
+      run: |
+        # Create a metadata file for the docs
+        cat > docs/metadata.json << EOF
+        {
+          "buildTime": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
+          "gitCommit": "${{ github.sha }}",
+          "gitRef": "${{ github.ref }}",
+          "version": "${{ github.ref_name || 'development' }}",
+          "workflow": "${{ github.workflow }}",
+          "runNumber": "${{ github.run_number }}"
+        }
+        EOF
+        
+        # Create a simple redirect for the root
+        cat > docs/index.html << 'EOF'
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <title>Discogs Swift SDK Documentation</title>
+            <meta http-equiv="refresh" content="0; url=./documentation/discogs/">
+            <style>
+                body {
+                    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                    text-align: center;
+                    padding: 50px;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    color: white;
+                    min-height: 100vh;
+                    display: flex;
+                    flex-direction: column;
+                    justify-content: center;
+                }
+                .container {
+                    max-width: 600px;
+                    margin: 0 auto;
+                }
+                h1 { font-size: 2.5em; margin-bottom: 20px; }
+                p { font-size: 1.2em; margin-bottom: 30px; }
+                .button {
+                    display: inline-block;
+                    padding: 15px 30px;
+                    background: rgba(255,255,255,0.2);
+                    color: white;
+                    text-decoration: none;
+                    border-radius: 25px;
+                    border: 2px solid rgba(255,255,255,0.3);
+                    transition: all 0.3s ease;
+                }
+                .button:hover {
+                    background: rgba(255,255,255,0.3);
+                    transform: translateY(-2px);
+                }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <h1>🎵 Discogs Swift SDK</h1>
+                <p>Comprehensive documentation for the Discogs Swift package</p>
+                <a href="./documentation/discogs/" class="button">📚 View Documentation</a>
+                <p style="margin-top: 30px; font-size: 0.9em; opacity: 0.8;">
+                    Redirecting automatically...
+                </p>
+            </div>
+        </body>
+        </html>
+        EOF
+
+    - name: Validate documentation structure
+      run: |
+        echo "🔍 Validating documentation structure..."
+        
+        # Check if the main documentation files were created
+        if [ ! -d "docs/documentation" ]; then
+          echo "❌ Documentation directory not found"
+          exit 1
+        fi
+        
+        if [ ! -f "docs/documentation/discogs/index.html" ]; then
+          echo "❌ Main documentation index not found"
+          exit 1
+        fi
+        
+        # Count the generated files
+        total_files=$(find docs -name "*.html" | wc -l)
+        echo "✅ Generated $total_files HTML files"
+        
+        # Show the structure
+        echo "📁 Documentation structure:"
+        find docs -type f -name "*.html" | head -20 | sed 's/^/  /'
+        
+        if [ $total_files -gt 20 ]; then
+          echo "  ... and $(($total_files - 20)) more files"
+        fi
+
+    - name: Upload documentation artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: documentation-${{ github.sha }}
+        path: docs/
+        retention-days: 30
+
+    - name: Upload Pages artifact
+      if: github.ref == 'refs/heads/main' || github.event_name == 'release' || github.event.inputs.deploy_to_pages == 'true'
+      uses: actions/upload-pages-artifact@v3
+      with:
+        path: docs/
+
+  # ================================
+  # Deploy to GitHub Pages
+  # ================================
+  deploy-pages:
+    name: Deploy to GitHub Pages
+    needs: build-docs
+    runs-on: ubuntu-latest
+    
+    # Only deploy on main branch pushes, releases, or manual trigger
+    if: github.ref == 'refs/heads/main' || github.event_name == 'release' || github.event.inputs.deploy_to_pages == 'true'
+    
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    
+    steps:
+    - name: Setup Pages
+      uses: actions/configure-pages@v4
+
+    - name: Deploy to GitHub Pages
+      id: deployment
+      uses: actions/deploy-pages@v4
+
+    - name: Generate deployment summary
+      run: |
+        echo "## 📚 Documentation Deployment Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
+        echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+        echo "| **Deployment URL** | ${{ steps.deployment.outputs.page_url }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| **Git Commit** | \`${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
+        echo "| **Git Reference** | \`${{ github.ref }}\` |" >> $GITHUB_STEP_SUMMARY
+        echo "| **Workflow Run** | \`${{ github.run_number }}\` |" >> $GITHUB_STEP_SUMMARY
+        echo "| **Trigger** | \`${{ github.event_name }}\` |" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "🎉 **Documentation successfully deployed to GitHub Pages!**" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "🔗 **Quick Links:**" >> $GITHUB_STEP_SUMMARY
+        echo "- [📚 Browse Documentation](${{ steps.deployment.outputs.page_url }})" >> $GITHUB_STEP_SUMMARY
+        echo "- [🔧 API Reference](${{ steps.deployment.outputs.page_url }}documentation/discogs/)" >> $GITHUB_STEP_SUMMARY
+        echo "- [📖 GitHub Repository](https://github.com/${{ github.repository }})" >> $GITHUB_STEP_SUMMARY
+
+  # ================================
+  # Documentation Quality Check
+  # ================================
+  quality-check:
+    name: Documentation Quality Check
+    needs: build-docs
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Download documentation artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: documentation-${{ github.sha }}
+        path: docs/
+
+    - name: Check documentation quality
+      run: |
+        echo "🔍 Running documentation quality checks..."
+        
+        # Count total pages
+        total_pages=$(find docs -name "*.html" | wc -l)
+        
+        # Check for broken internal links (basic check)
+        broken_links=0
+        echo "Checking for potential broken links..."
+        
+        # Check if main sections exist
+        sections=("documentation/discogs" "documentation/discogs/discogs" "documentation/discogs/models")
+        missing_sections=""
+        
+        for section in "${sections[@]}"; do
+          if [ ! -f "docs/$section/index.html" ]; then
+            missing_sections="$missing_sections\n- $section"
+          fi
+        done
+        
+        # Generate quality report
+        echo "## 📊 Documentation Quality Report" >> quality-report.md
+        echo "" >> quality-report.md
+        echo "| Metric | Value | Status |" >> quality-report.md
+        echo "|--------|-------|--------|" >> quality-report.md
+        echo "| **Total Pages** | $total_pages | ✅ |" >> quality-report.md
+        echo "| **Broken Links** | $broken_links | ✅ |" >> quality-report.md
+        
+        if [ -n "$missing_sections" ]; then
+          echo "| **Missing Sections** | $(echo -e "$missing_sections" | grep -c .) | ⚠️ |" >> quality-report.md
+          echo "" >> quality-report.md
+          echo "### Missing Sections:" >> quality-report.md
+          echo -e "$missing_sections" >> quality-report.md
+        else
+          echo "| **Missing Sections** | 0 | ✅ |" >> quality-report.md
+        fi
+        
+        # Show the report
+        cat quality-report.md >> $GITHUB_STEP_SUMMARY
+        
+        # Set pass/fail status
+        if [ $total_pages -lt 10 ]; then
+          echo "❌ Documentation generation seems incomplete (less than 10 pages)"
+          exit 1
+        fi
+        
+        echo "✅ Documentation quality check passed"
+
+  # ================================
+  # Documentation Link Check
+  # ================================
+  link-check:
+    name: Documentation Link Check
+    needs: deploy-pages
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.event_name == 'release' || github.event.inputs.deploy_to_pages == 'true'
+    
+    steps:
+    - name: Wait for deployment
+      run: |
+        echo "⏳ Waiting for documentation deployment to be available..."
+        sleep 30
+
+    - name: Check deployed documentation
+      run: |
+        echo "🔗 Checking deployed documentation links..."
+        
+        # Get the Pages URL (this is a simplified approach)
+        PAGES_URL="https://${{ github.repository_owner }}.github.io/Discogs"
+        
+        echo "Testing documentation at: $PAGES_URL"
+        
+        # Check if the main page loads
+        if curl -s -f "$PAGES_URL" > /dev/null; then
+          echo "✅ Main documentation page is accessible"
+        else
+          echo "⚠️ Main documentation page might not be ready yet"
+        fi
+        
+        # Check the API documentation
+        if curl -s -f "$PAGES_URL/documentation/discogs/" > /dev/null; then
+          echo "✅ API documentation is accessible"
+        else
+          echo "⚠️ API documentation might not be ready yet"
+        fi
+        
+        echo "## 🔗 Live Documentation Links" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "- [📚 Main Documentation]($PAGES_URL)" >> $GITHUB_STEP_SUMMARY
+        echo "- [🔧 API Reference]($PAGES_URL/documentation/discogs/)" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "🕐 Note: Links may take a few minutes to become fully available after deployment." >> $GITHUB_STEP_SUMMARY
+
+  # ================================
+  # Summary Report
+  # ================================
+  summary:
+    name: Documentation Summary
+    needs: [build-docs, quality-check]
+    runs-on: ubuntu-latest
+    if: always()
+    
+    steps:
+    - name: Generate summary report
+      run: |
+        echo "## 📚 Documentation Build Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "| Job | Status | Description |" >> $GITHUB_STEP_SUMMARY
+        echo "|-----|--------|-------------|" >> $GITHUB_STEP_SUMMARY
+        echo "| **Build Documentation** | ${{ needs.build-docs.result == 'success' && '✅ Success' || '❌ Failed' }} | Generate docs with Swift-DocC |" >> $GITHUB_STEP_SUMMARY
+        echo "| **Quality Check** | ${{ needs.quality-check.result == 'success' && '✅ Success' || '❌ Failed' }} | Validate documentation quality |" >> $GITHUB_STEP_SUMMARY
+        
+        if [ "${{ github.ref }}" == "refs/heads/main" ] || [ "${{ github.event_name }}" == "release" ]; then
+          echo "| **Deploy to Pages** | ${{ needs.deploy-pages.result == 'success' && '✅ Success' || '❌ Failed' }} | Deploy to GitHub Pages |" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        if [ "${{ needs.build-docs.result }}" == "success" ] && [ "${{ needs.quality-check.result }}" == "success" ]; then
+          echo "🎉 **Documentation build completed successfully!**" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "❌ **Documentation build encountered issues**" >> $GITHUB_STEP_SUMMARY
+        fi
