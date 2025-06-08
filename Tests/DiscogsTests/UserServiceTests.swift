@@ -21,7 +21,7 @@ struct UserServiceTests {
         let _ = UserService(httpClient: mockClient)
         
         // Then
-        #expect(true)
+        #expect(Bool(true))
     }
     
     @Test("UserService initializes with client for backward compatibility")
@@ -33,7 +33,7 @@ struct UserServiceTests {
         let _ = UserService(client: discogs)
         
         // Then
-        #expect(true)
+        #expect(Bool(true))
     }
     
     @Test("UserService conforms to Sendable")
