@@ -29,11 +29,11 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    # Setup Swift on Ubuntu (manual installation to avoid GPG issues)
+    # Setup Swift on Ubuntu using Swiftly (modern recommended approach)
     - name: Setup Swift (Ubuntu)
       if: matrix.os == 'ubuntu-latest'
       run: |
-        # Install dependencies
+        # Install system dependencies required for Swift
         sudo apt-get update
         sudo apt-get install -y \
           binutils \
@@ -53,24 +53,22 @@ jobs:
           unzip \
           zlib1g-dev
         
-        # Download and install Swift 6.1
-        SWIFT_VERSION="6.1"
-        SWIFT_PLATFORM="ubuntu2404"
-        SWIFT_BRANCH="swift-${SWIFT_VERSION}-release"
-        SWIFT_URL="https://download.swift.org/${SWIFT_BRANCH}/ubuntu2404/swift-${SWIFT_VERSION}-RELEASE/swift-${SWIFT_VERSION}-RELEASE-${SWIFT_PLATFORM}.tar.gz"
+        # Install Swiftly (Swift toolchain manager)
+        curl -O https://download.swift.org/swiftly/linux/swiftly-$(uname -m).tar.gz
+        tar zxf swiftly-$(uname -m).tar.gz
+        ./swiftly init --quiet-shell-followup
+        source "${SWIFTLY_HOME_DIR:-~/.local/share/swiftly}/env.sh"
+        hash -r
         
-        echo "Downloading Swift ${SWIFT_VERSION} from ${SWIFT_URL}"
-        curl -L "${SWIFT_URL}" -o swift.tar.gz
+        # Install Swift 6.1 using Swiftly
+        swiftly install 6.1
+        swiftly use 6.1
         
-        # Extract Swift
-        sudo tar -xzf swift.tar.gz -C /opt/
-        sudo mv /opt/swift-${SWIFT_VERSION}-RELEASE-${SWIFT_PLATFORM} /opt/swift
-        
-        # Add Swift to PATH
-        echo "/opt/swift/usr/bin" >> $GITHUB_PATH
+        # Add Swift to PATH for GitHub Actions
+        echo "${SWIFTLY_HOME_DIR:-~/.local/share/swiftly}/toolchains/6.1/usr/bin" >> $GITHUB_PATH
         
         # Verify installation
-        /opt/swift/usr/bin/swift --version
+        swift --version
 
     # macOS comes with Swift pre-installed, but we'll verify the version
     - name: Setup Swift (macOS)
