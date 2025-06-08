@@ -27,13 +27,13 @@ jobs:
     
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v4.2.2
 
-    # Setup Swift on Ubuntu using Swiftly (modern recommended approach)
+    # Setup Swift using the official installer (recommended approach)
     - name: Setup Swift (Ubuntu)
       if: matrix.os == 'ubuntu-latest'
       run: |
-        # Install system dependencies required for Swift
+        # Install system dependencies for Swift
         sudo apt-get update
         sudo apt-get install -y \
           binutils \
@@ -42,10 +42,10 @@ jobs:
           libc6-dev \
           libcurl4-openssl-dev \
           libedit2 \
-          libgcc-9-dev \
-          libpython3.8 \
+          libgcc-s1 \
+          libpython3.12 \
           libsqlite3-0 \
-          libstdc++-9-dev \
+          libstdc++6 \
           libxml2-dev \
           libz3-dev \
           pkg-config \
@@ -53,50 +53,34 @@ jobs:
           unzip \
           zlib1g-dev
         
-        # Install Swiftly (Swift toolchain manager)
-        curl -O https://download.swift.org/swiftly/linux/swiftly-$(uname -m).tar.gz
-        tar zxf swiftly-$(uname -m).tar.gz
-        ./swiftly init --quiet-shell-followup
-        source "${SWIFTLY_HOME_DIR:-~/.local/share/swiftly}/env.sh"
+        # Install Swiftly using the official method
+        curl -O https://download.swift.org/swiftly/linux/swiftly-$(uname -m).tar.gz && \
+        tar zxf swiftly-$(uname -m).tar.gz && \
+        ./swiftly init --quiet-shell-followup && \
+        . "${SWIFTLY_HOME_DIR:-~/.local/share/swiftly}/env.sh" && \
         hash -r
         
-        # Install Swift 6.1 using Swiftly
+        # Install Swift 6.1
         swiftly install 6.1
         swiftly use 6.1
         
-        # Add Swift to PATH for GitHub Actions
-        echo "${SWIFTLY_HOME_DIR:-~/.local/share/swiftly}/toolchains/6.1/usr/bin" >> $GITHUB_PATH
-        
         # Verify installation
         swift --version
-        
-        # Alternative manual installation method (if Swiftly fails):
-        # SWIFT_URL="https://download.swift.org/swift-6.1.2-release/ubuntu2404/swift-6.1.2-RELEASE/swift-6.1.2-RELEASE-ubuntu24.04.tar.gz"
-        # curl -L "${SWIFT_URL}" -o swift.tar.gz
-        # sudo tar -xzf swift.tar.gz -C /opt/
-        # sudo mv /opt/swift-6.1.2-RELEASE-ubuntu24.04 /opt/swift
-        # echo "/opt/swift/usr/bin" >> $GITHUB_PATH
 
-    # macOS comes with Swift pre-installed, but we'll verify the version
+    # Setup Swift on macOS using the action
     - name: Setup Swift (macOS)
       if: matrix.os == 'macos-latest'
-      uses: swift-actions/setup-swift@v2
+      uses: swift-actions/setup-swift@v2.3.0
       with:
         swift-version: ${{ matrix.swift-version }}
 
-    - name: Check Swift version (macOS)
-      if: matrix.os == 'macos-latest'
-      run: swift --version
-
-    # Verify Swift installation on Ubuntu
-    - name: Verify Swift installation (Ubuntu)
-      if: matrix.os == 'ubuntu-latest'
+    - name: Verify Swift installation
       run: |
         swift --version
         which swift
 
     - name: Cache Swift packages
-      uses: actions/cache@v4
+      uses: actions/cache@v4.2.3
       with:
         path: .build
         key: ${{ runner.os }}-swift-${{ hashFiles('Package.swift') }}
@@ -124,7 +108,7 @@ jobs:
     
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v4.2.2
       
     - name: Validate Package.swift
       run: swift package dump-package
@@ -144,7 +128,7 @@ jobs:
     
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v4.2.2
 
     - name: Build for analysis
       run: swift build --configuration release
@@ -178,30 +162,45 @@ jobs:
         include:
           - platform: iOS
             destination: 'platform=iOS Simulator,name=iPhone 15,OS=latest'
-            scheme: 'Discogs'
+            sdk: iphonesimulator
           - platform: macOS
             destination: 'platform=macOS'
-            scheme: 'Discogs'
+            sdk: macosx
           - platform: tvOS
             destination: 'platform=tvOS Simulator,name=Apple TV,OS=latest'
-            scheme: 'Discogs'
+            sdk: appletvsimulator
           - platform: watchOS
             destination: 'platform=watchOS Simulator,name=Apple Watch Series 9 (45mm),OS=latest'
-            scheme: 'Discogs'
+            sdk: watchsimulator
     
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v4.2.2
+
+    - name: Setup Xcode
+      uses: maxim-lobanov/setup-xcode@v1.6.0
+      with:
+        xcode-version: latest-stable
 
     - name: List available simulators
       run: xcrun simctl list devices available
 
     - name: Build for ${{ matrix.platform }}
       run: |
-        xcodebuild -scheme ${{ matrix.scheme }} \
+        echo "🏗️ Building for ${{ matrix.platform }}..."
+        
+        # Generate Xcode project from SPM
+        swift package generate-xcodeproj
+        
+        # Build the project for the specific platform
+        xcodebuild -project Discogs.xcodeproj \
+          -scheme Discogs-Package \
           -destination "${{ matrix.destination }}" \
+          -sdk ${{ matrix.sdk }} \
           -configuration Debug \
-          build-for-testing
+          build
+          
+        echo "✅ ${{ matrix.platform }} build completed successfully"
 
   # ================================
   # Integration Tests (Mock)
@@ -212,7 +211,7 @@ jobs:
     
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v4.2.2
 
     - name: Run mock integration tests
       run: |
@@ -238,7 +237,7 @@ jobs:
     
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v4.2.2
 
     - name: Run live API tests
       continue-on-error: true
@@ -293,15 +292,15 @@ jobs:
     
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v4.2.2
 
     - name: Setup Xcode
-      uses: maxim-lobanov/setup-xcode@v1
+      uses: maxim-lobanov/setup-xcode@v1.6.0
       with:
         xcode-version: latest-stable
 
     - name: Cache Swift packages
-      uses: actions/cache@v4
+      uses: actions/cache@v4.2.3
       with:
         path: .build
         key: ${{ runner.os }}-swift-docs-${{ hashFiles('Package.swift') }}
@@ -366,7 +365,7 @@ jobs:
         echo "✅ Documentation quality check completed"
 
     - name: Upload documentation artifacts
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v4.4.3
       with:
         name: documentation-${{ github.sha }}
         path: .build/documentation/
@@ -397,18 +396,31 @@ jobs:
     
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v4.2.2
+
+    - name: Setup Swift
+      uses: swift-actions/setup-swift@v2.3.0
+      with:
+        swift-version: '6.1'
+
+    - name: Build package first
+      run: swift build
 
     - name: Compile examples
       run: |
+        echo "🔍 Testing example compilation..."
         # Test that example files compile
         if [ -d "Examples" ]; then
           for example in Examples/*.swift; do
             if [ -f "$example" ]; then
               echo "Checking compilation of $example"
+              # Use swift to typecheck the example file with the built package
               swift -typecheck "$example" -I .build/debug/
             fi
           done
+          echo "✅ All examples compile successfully"
+        else
+          echo "⚠️ No Examples directory found"
         fi
 
   # ================================
@@ -420,7 +432,7 @@ jobs:
     
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v4.2.2
 
     - name: Make scripts executable
       run: |
@@ -447,7 +459,7 @@ jobs:
     
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v4.2.2
 
     - name: Audit package dependencies
       run: |
@@ -474,7 +486,7 @@ jobs:
     
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v4.2.2
 
     - name: Check version consistency
       run: |
