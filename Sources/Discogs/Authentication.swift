@@ -1,5 +1,10 @@
 import Foundation
+#if canImport(CryptoKit)
 import CryptoKit
+#endif
+#if canImport(CommonCrypto)
+import CommonCrypto
+#endif
 
 /// Authentication methods supported by the Discogs API
 public enum AuthMethod: Sendable {
@@ -356,12 +361,160 @@ public class Authentication {
     ///   - key: The signing key
     /// - Returns: The base64-encoded signature without padding
     private func hmacSHA1(data: String, key: String) -> String {
+        #if canImport(CryptoKit)
+        // Use CryptoKit on platforms where it's available (iOS 13+, macOS 10.15+, etc.)
         let keyData = SymmetricKey(data: key.data(using: .utf8)!)
         let dataData = data.data(using: .utf8)!
         
         let signature = HMAC<Insecure.SHA1>.authenticationCode(for: dataData, using: keyData)
         return Data(signature).base64EncodedString().trimmingCharacters(in: CharacterSet(charactersIn: "="))
+        #elseif canImport(CommonCrypto)
+        // Use CommonCrypto on older Apple platforms
+        let keyData = key.data(using: .utf8)!
+        let dataData = data.data(using: .utf8)!
+        
+        var result = [UInt8](repeating: 0, count: Int(CC_SHA1_DIGEST_LENGTH))
+        CCHmac(CCHmacAlgorithm(kCCHmacAlgSHA1), keyData.withUnsafeBytes { $0.baseAddress }, keyData.count, dataData.withUnsafeBytes { $0.baseAddress }, dataData.count, &result)
+        
+        let hmacData = Data(result)
+        return hmacData.base64EncodedString().trimmingCharacters(in: CharacterSet(charactersIn: "="))
+        #else
+        // Fallback implementation for Linux and other platforms
+        return linuxHmacSHA1(data: data, key: key)
+        #endif
     }
+    
+    #if !canImport(CryptoKit) && !canImport(CommonCrypto)
+    /// Linux-compatible HMAC-SHA1 implementation
+    /// This provides a pure Swift implementation of HMAC-SHA1 for platforms
+    /// where neither CryptoKit nor CommonCrypto are available.
+    private func linuxHmacSHA1(data: String, key: String) -> String {
+        let keyData = Array(key.utf8)
+        let dataData = Array(data.utf8)
+        
+        // HMAC-SHA1 implementation
+        var keyBytes = keyData
+        let blockSize = 64  // SHA-1 block size
+        
+        // If key is longer than block size, hash it
+        if keyBytes.count > blockSize {
+            keyBytes = Array(sha1(keyBytes))
+        }
+        
+        // Pad key to block size
+        while keyBytes.count < blockSize {
+            keyBytes.append(0)
+        }
+        
+        // Create inner and outer padding
+        let innerPad = keyBytes.map { $0 ^ 0x36 }
+        let outerPad = keyBytes.map { $0 ^ 0x5c }
+        
+        // HMAC = SHA1(outerPad + SHA1(innerPad + data))
+        let innerHash = sha1(innerPad + dataData)
+        let finalHash = sha1(outerPad + Array(innerHash))
+        
+        return Data(finalHash).base64EncodedString().trimmingCharacters(in: CharacterSet(charactersIn: "="))
+    }
+    
+    /// Pure Swift SHA-1 implementation for Linux compatibility
+    private func sha1(_ data: [UInt8]) -> [UInt8] {
+        var message = data
+        let originalLength = UInt64(message.count * 8)
+        
+        // Pre-processing: adding padding bits
+        message.append(0x80)
+        while (message.count % 64) != 56 {
+            message.append(0)
+        }
+        
+        // Append original length as 64-bit big-endian
+        for i in stride(from: 56, through: 0, by: -8) {
+            message.append(UInt8((originalLength >> i) & 0xFF))
+        }
+        
+        // Initialize hash values
+        var h0: UInt32 = 0x67452301
+        var h1: UInt32 = 0xEFCDAB89
+        var h2: UInt32 = 0x98BADCFE
+        var h3: UInt32 = 0x10325476
+        var h4: UInt32 = 0xC3D2E1F0
+        
+        // Process message in 512-bit chunks
+        for chunkStart in stride(from: 0, to: message.count, by: 64) {
+            var w = [UInt32](repeating: 0, count: 80)
+            
+            // Break chunk into sixteen 32-bit big-endian words
+            for i in 0..<16 {
+                let offset = chunkStart + i * 4
+                w[i] = (UInt32(message[offset]) << 24) |
+                       (UInt32(message[offset + 1]) << 16) |
+                       (UInt32(message[offset + 2]) << 8) |
+                       UInt32(message[offset + 3])
+            }
+            
+            // Extend the sixteen 32-bit words into eighty 32-bit words
+            for i in 16..<80 {
+                let temp = w[i-3] ^ w[i-8] ^ w[i-14] ^ w[i-16]
+                w[i] = rotateLeft(temp, by: 1)
+            }
+            
+            // Initialize hash value for this chunk
+            var a = h0, b = h1, c = h2, d = h3, e = h4
+            
+            // Main loop
+            for i in 0..<80 {
+                let f: UInt32
+                let k: UInt32
+                
+                switch i {
+                case 0..<20:
+                    f = (b & c) | ((~b) & d)
+                    k = 0x5A827999
+                case 20..<40:
+                    f = b ^ c ^ d
+                    k = 0x6ED9EBA1
+                case 40..<60:
+                    f = (b & c) | (b & d) | (c & d)
+                    k = 0x8F1BBCDC
+                default:
+                    f = b ^ c ^ d
+                    k = 0xCA62C1D6
+                }
+                
+                let temp = rotateLeft(a, by: 5) &+ f &+ e &+ k &+ w[i]
+                e = d
+                d = c
+                c = rotateLeft(b, by: 30)
+                b = a
+                a = temp
+            }
+            
+            // Add this chunk's hash to result so far
+            h0 = h0 &+ a
+            h1 = h1 &+ b
+            h2 = h2 &+ c
+            h3 = h3 &+ d
+            h4 = h4 &+ e
+        }
+        
+        // Produce the final hash value as a 160-bit number (20 bytes)
+        var result = [UInt8]()
+        for h in [h0, h1, h2, h3, h4] {
+            result.append(UInt8((h >> 24) & 0xFF))
+            result.append(UInt8((h >> 16) & 0xFF))
+            result.append(UInt8((h >> 8) & 0xFF))
+            result.append(UInt8(h & 0xFF))
+        }
+        
+        return result
+    }
+    
+    /// Left rotate a 32-bit integer
+    private func rotateLeft(_ value: UInt32, by amount: UInt32) -> UInt32 {
+        return (value << amount) | (value >> (32 - amount))
+    }
+    #endif
 }
 
 /// Character set for RFC 3986 unreserved characters

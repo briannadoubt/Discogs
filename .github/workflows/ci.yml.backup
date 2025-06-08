@@ -7,7 +7,7 @@ on:
     branches: [ main, develop ]
 
 env:
-  SWIFT_VERSION: '6.0'
+  SWIFT_VERSION: '6.1'
 
 jobs:
   # ================================
@@ -23,8 +23,22 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4.2.2
+  release-check:
+    name: Release Readiness
+    runs-on: macos-latest
+    if: github.ref == 'refs/heads/main'
+    needs: [build-and-test, spm-validation, integration-tests]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4.2.2
 
-    # Install Swift manually on Ubuntu (more reliable than GitHub Action)
+    - name: Setup Swift (macOS)
+      uses: swift-actions/setup-swift@v2.3.0
+      with:
+        swift-version: ${{ env.SWIFT_VERSION }}
+
+    - name: Check version consistencyall Swift manually on Ubuntu (more reliable than GitHub Action)
     - name: Setup Swift (Ubuntu)
       if: matrix.os == 'ubuntu-latest'
       run: |
@@ -51,7 +65,7 @@ jobs:
           zlib1g-dev
         
         # Use official Swift.org installer for Ubuntu
-        SWIFT_VERSION="${{ env.SWIFT_VERSION }}"
+        SWIFT_VERSION="6.1"
         SWIFT_RELEASE="swift-${SWIFT_VERSION}-RELEASE"
         UBUNTU_VERSION="22.04"
         SWIFT_URL="https://download.swift.org/swift-${SWIFT_VERSION}-release/ubuntu${UBUNTU_VERSION//.}/swift-${SWIFT_VERSION}-RELEASE/swift-${SWIFT_VERSION}-RELEASE-ubuntu${UBUNTU_VERSION}.tar.gz"
@@ -93,8 +107,13 @@ jobs:
 
     - name: Run unit tests (excluding live tests)
       run: |
-        # Run basic unit tests, excluding live and functional tests
-        swift test --parallel --verbose
+        # Skip specific test targets instead of individual test methods
+        swift test --parallel --verbose \
+          --skip-target LiveAPIIntegrationTests \
+          --skip-target AuthenticationFunctionalTests \
+          --skip-target DatabaseServiceFunctionalTests \
+          --skip-target EndToEndAPIComplianceTests \
+          --skip-target FinalIntegrationTests
 
   # ================================
   # Swift Package Manager Validation
@@ -196,8 +215,12 @@ jobs:
       run: |
         echo "🏗️ Building for ${{ matrix.platform }}..."
         
-        # Use xcodebuild directly with Swift Package Manager (no project generation needed)
-        xcodebuild -scheme Discogs \
+        # Generate Xcode project from SPM
+        swift package generate-xcodeproj
+        
+        # Build the project for the specific platform
+        xcodebuild -project Discogs.xcodeproj \
+          -scheme Discogs-Package \
           -destination "${{ matrix.destination }}" \
           -sdk ${{ matrix.sdk }} \
           -configuration Debug \
@@ -294,10 +317,6 @@ jobs:
       run: |
         echo "🏗️ Building documentation with Swift-DocC..."
         
-        # Ensure output directory exists and has proper permissions
-        mkdir -p .build/documentation
-        chmod 755 .build/documentation
-        
         # Build the documentation
         swift package generate-documentation \
           --target Discogs \
@@ -363,7 +382,7 @@ jobs:
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "- ✅ Documentation built successfully with Swift-DocC" >> $GITHUB_STEP_SUMMARY
         echo "- 📁 Generated $(find .build/documentation -name "*.html" | wc -l | tr -d ' ') HTML files" >> $GITHUB_STEP_SUMMARY
-        echo "- 📖 Includes $(find Sources/Discogs/Documentation.docc -name "*.md" | wc -l | tr -d ' ') articles" >> $GITHUB_STEP_SUMMARY
+        echo "- 📖 Includes $(find Sources/Discogs/Documentation.docc -name "*.md" | wc -l | tr -d ' ') documentation articles" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         
         if [ "${{ github.ref }}" == "refs/heads/main" ]; then
@@ -387,7 +406,7 @@ jobs:
     - name: Setup Swift
       uses: swift-actions/setup-swift@v2.3.0
       with:
-        swift-version: ${{ env.SWIFT_VERSION }}
+        swift-version: '6.1'
 
     - name: Build package first
       run: swift build
@@ -397,18 +416,14 @@ jobs:
         echo "🔍 Testing example compilation..."
         # Test that example files compile
         if [ -d "Examples" ]; then
-          # Clean any previous build artifacts to avoid conflicts
-          swift package clean
-          swift build
-          
           for example in Examples/*.swift; do
             if [ -f "$example" ]; then
-              echo "Checking syntax of $example"
-              # Simple syntax check instead of full compilation to avoid module conflicts
-              swift -frontend -typecheck "$example" || echo "⚠️ Warning: $example has syntax issues (continuing...)"
+              echo "Checking compilation of $example"
+              # Use swift to typecheck the example file with the built package
+              swift -typecheck "$example" -I .build/debug/
             fi
           done
-          echo "✅ Example syntax checks completed"
+          echo "✅ All examples compile successfully"
         else
           echo "⚠️ No Examples directory found"
         fi
@@ -482,11 +497,6 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4.2.2
-
-    - name: Setup Swift (macOS)
-      uses: swift-actions/setup-swift@v2.3.0
-      with:
-        swift-version: ${{ env.SWIFT_VERSION }}
 
     - name: Check version consistency
       run: |
