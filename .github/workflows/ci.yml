@@ -24,16 +24,9 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4.2.2
 
-    # Setup Swift using the official GitHub Action (fastest and most reliable)
+    # Install Swift manually on Ubuntu (more reliable than GitHub Action)
     - name: Setup Swift (Ubuntu)
       if: matrix.os == 'ubuntu-latest'
-      uses: swift-actions/setup-swift@v2.3.0
-      with:
-        swift-version: ${{ env.SWIFT_VERSION }}
-    
-    # Fallback: Install Swift manually if the action fails
-    - name: Setup Swift (Ubuntu Fallback)
-      if: matrix.os == 'ubuntu-latest' && failure()
       run: |
         echo "GitHub Action failed, trying manual installation..."
         
@@ -100,12 +93,13 @@ jobs:
 
     - name: Run unit tests (excluding live tests)
       run: |
+        # Skip specific test targets instead of individual test methods
         swift test --parallel --verbose \
-          --skip-test LiveAPIIntegrationTests \
-          --skip-test AuthenticationFunctionalTests \
-          --skip-test DatabaseServiceFunctionalTests \
-          --skip-test EndToEndAPIComplianceTests \
-          --skip-test FinalIntegrationTests
+          --skip-target LiveAPIIntegrationTests \
+          --skip-target AuthenticationFunctionalTests \
+          --skip-target DatabaseServiceFunctionalTests \
+          --skip-target EndToEndAPIComplianceTests \
+          --skip-target FinalIntegrationTests
 
   # ================================
   # Swift Package Manager Validation
@@ -117,6 +111,11 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4.2.2
+      
+    - name: Setup Swift (macOS)
+      uses: swift-actions/setup-swift@v2.3.0
+      with:
+        swift-version: ${{ env.SWIFT_VERSION }}
       
     - name: Validate Package.swift
       run: swift package dump-package
@@ -137,6 +136,11 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4.2.2
+
+    - name: Setup Swift (macOS)
+      uses: swift-actions/setup-swift@v2.3.0
+      with:
+        swift-version: ${{ env.SWIFT_VERSION }}
 
     - name: Build for analysis
       run: swift build --configuration release
@@ -220,6 +224,11 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4.2.2
+
+    - name: Setup Swift (macOS)
+      uses: swift-actions/setup-swift@v2.3.0
+      with:
+        swift-version: ${{ env.SWIFT_VERSION }}
 
     - name: Run mock integration tests
       run: |
@@ -359,7 +368,7 @@ jobs:
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "- ✅ Documentation built successfully with Swift-DocC" >> $GITHUB_STEP_SUMMARY
         echo "- 📁 Generated $(find .build/documentation -name "*.html" | wc -l | tr -d ' ') HTML files" >> $GITHUB_STEP_SUMMARY
-        echo "- 📖 Includes $(find Sources/Discogs/Documentation.docc -name "*.md" | wc -l | tr -d ' ') documentation articles" >> $GITHUB_STEP_SUMMARY
+        echo "- 📖 Includes $(find Sources/Discogs/Documentation.docc -name "*.md" | wc -l | tr -d ' ') articles" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         
         if [ "${{ github.ref }}" == "refs/heads/main" ]; then
@@ -443,6 +452,11 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4.2.2
 
+    - name: Setup Swift (macOS)
+      uses: swift-actions/setup-swift@v2.3.0
+      with:
+        swift-version: ${{ env.SWIFT_VERSION }}
+
     - name: Audit package dependencies
       run: |
         # Check for any security advisories (if Swift supports this in the future)
@@ -469,6 +483,11 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4.2.2
+
+    - name: Setup Swift (macOS)
+      uses: swift-actions/setup-swift@v2.3.0
+      with:
+        swift-version: ${{ env.SWIFT_VERSION }}
 
     - name: Check version consistency
       run: |
