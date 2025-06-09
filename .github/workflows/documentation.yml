@@ -238,13 +238,31 @@ jobs:
     
     steps:
     - name: Setup Pages
+      id: setup-pages
       uses: actions/configure-pages@v4
+      continue-on-error: true
+
+    - name: Check Pages configuration
+      run: |
+        if [ "${{ steps.setup-pages.outcome }}" != "success" ]; then
+          echo "⚠️ GitHub Pages is not configured for this repository."
+          echo ""
+          echo "To enable GitHub Pages:"
+          echo "1. Go to Settings > Pages in your GitHub repository"
+          echo "2. Set Source to 'GitHub Actions'"
+          echo "3. Re-run this workflow"
+          echo ""
+          echo "Documentation artifacts are still available for download."
+          exit 0
+        fi
 
     - name: Deploy to GitHub Pages
       id: deployment
+      if: steps.setup-pages.outcome == 'success'
       uses: actions/deploy-pages@v4
 
     - name: Generate deployment summary
+      if: steps.setup-pages.outcome == 'success' && steps.deployment.outcome == 'success'
       run: |
         echo "## 📚 Documentation Deployment Summary" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
@@ -262,6 +280,28 @@ jobs:
         echo "- [📚 Browse Documentation](${{ steps.deployment.outputs.page_url }})" >> $GITHUB_STEP_SUMMARY
         echo "- [🔧 API Reference](${{ steps.deployment.outputs.page_url }}documentation/discogs/)" >> $GITHUB_STEP_SUMMARY
         echo "- [📖 GitHub Repository](https://github.com/${{ github.repository }})" >> $GITHUB_STEP_SUMMARY
+
+    - name: Generate setup instructions (if Pages not configured)
+      if: steps.setup-pages.outcome != 'success'
+      run: |
+        echo "## 📚 Documentation Build Complete" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "✅ **Documentation built successfully** but GitHub Pages is not configured." >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 🔧 Enable GitHub Pages" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "To deploy documentation to GitHub Pages:" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "1. **Go to Settings**: Navigate to your repository's Settings tab" >> $GITHUB_STEP_SUMMARY
+        echo "2. **Find Pages section**: Scroll down to the 'Pages' section in the left sidebar" >> $GITHUB_STEP_SUMMARY
+        echo "3. **Set Source**: Choose 'GitHub Actions' as the source" >> $GITHUB_STEP_SUMMARY
+        echo "4. **Re-run workflow**: Come back here and re-run this workflow" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 📦 Available Now" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "- Documentation artifacts are available for download" >> $GITHUB_STEP_SUMMARY
+        echo "- All documentation files are built and ready" >> $GITHUB_STEP_SUMMARY
+        echo "- No errors in documentation generation" >> $GITHUB_STEP_SUMMARY
 
   # ================================
   # Documentation Quality Check
