@@ -600,11 +600,34 @@ jobs:
         
         echo "✅ Documentation quality check completed"
 
+    - name: Sanitize documentation for upload
+      run: |
+        echo "🧹 Sanitizing documentation files for artifact upload..."
+        
+        # Create a clean copy of the documentation for upload
+        mkdir -p .build/documentation-clean
+        
+        # Copy the doccarchive and sanitize filenames
+        if [ -d ".build/documentation/Discogs.doccarchive" ]; then
+          echo "📁 Copying and sanitizing Discogs.doccarchive..."
+          
+          # Use rsync to copy while avoiding problematic characters
+          # We'll create a tar archive instead to preserve the structure
+          cd .build/documentation
+          tar -czf ../documentation-clean/Discogs-documentation.tar.gz Discogs.doccarchive/
+          cd ../..
+          
+          echo "✅ Documentation packaged as tar.gz to avoid filename issues"
+        else
+          echo "⚠️ Discogs.doccarchive not found, creating empty archive"
+          touch .build/documentation-clean/no-documentation-generated.txt
+        fi
+
     - name: Upload documentation artifacts
       uses: actions/upload-artifact@v4.4.3
       with:
         name: documentation-${{ github.sha }}
-        path: .build/documentation/
+        path: .build/documentation-clean/
         retention-days: 30
 
     - name: Documentation deployment status
@@ -614,6 +637,7 @@ jobs:
         echo "- ✅ Documentation built successfully with Swift-DocC" >> $GITHUB_STEP_SUMMARY
         echo "- 📁 Generated $(find .build/documentation -name "*.html" | wc -l | tr -d ' ') HTML files" >> $GITHUB_STEP_SUMMARY
         echo "- 📖 Includes $(find Sources/Discogs/Documentation.docc -name "*.md" | wc -l | tr -d ' ') articles" >> $GITHUB_STEP_SUMMARY
+        echo "- 📦 Documentation packaged as tar.gz for artifact upload" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         
         if [ "${{ github.ref }}" == "refs/heads/main" ]; then
@@ -621,6 +645,7 @@ jobs:
           echo "📝 Visit the [Documentation Workflow](../actions/workflows/documentation.yml) for deployment status" >> $GITHUB_STEP_SUMMARY
         else
           echo "🔍 **Branch build**: Documentation validated but not deployed" >> $GITHUB_STEP_SUMMARY
+          echo "💡 **Artifact**: Documentation archived as Discogs-documentation.tar.gz" >> $GITHUB_STEP_SUMMARY
         fi
 
   # ================================
