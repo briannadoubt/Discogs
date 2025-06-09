@@ -69,7 +69,8 @@ jobs:
           --disable-indexing \
           --transform-for-static-hosting \
           --hosting-base-path Discogs \
-          --output-path docs
+          --output-path docs \
+          --emit-digest
         
         echo "✅ Documentation built successfully"
 
@@ -169,6 +170,32 @@ jobs:
           echo "  ... and $(($total_files - 20)) more files"
         fi
 
+    - name: Clean up file names for artifact upload
+      run: |
+        echo "🧹 Cleaning up file names with special characters..."
+        
+        # Find and rename files with colons in their names
+        find docs -name "*:*" -type f | while read -r file; do
+          # Replace colons with hyphens in the filename
+          newfile=$(echo "$file" | sed 's/:/-/g')
+          if [ "$file" != "$newfile" ]; then
+            mv "$file" "$newfile"
+            echo "Renamed: $file -> $newfile"
+          fi
+        done
+        
+        # Also check for other problematic characters
+        find docs -name '*"*' -o -name '*<*' -o -name '*>*' -o -name '*|*' -o -name '*\**' -o -name '*\?*' | while read -r file; do
+          # Replace problematic characters with safe alternatives
+          newfile=$(echo "$file" | sed 's/"/-/g; s/</-/g; s/>/-/g; s/|/-/g; s/\*/-/g; s/\?/-/g')
+          if [ "$file" != "$newfile" ]; then
+            mv "$file" "$newfile"
+            echo "Renamed: $file -> $newfile"
+          fi
+        done
+        
+        echo "✅ File names cleaned up for artifact upload"
+
     - name: Upload documentation artifacts
       uses: actions/upload-artifact@v4
       with:
@@ -197,10 +224,6 @@ jobs:
       contents: read
       pages: write
       id-token: write
-    
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     
     steps:
     - name: Setup Pages
@@ -343,7 +366,7 @@ jobs:
   # ================================
   summary:
     name: Documentation Summary
-    needs: [build-docs, quality-check]
+    needs: [build-docs, quality-check, deploy-pages]
     runs-on: ubuntu-latest
     if: always()
     
@@ -357,8 +380,8 @@ jobs:
         echo "| **Build Documentation** | ${{ needs.build-docs.result == 'success' && '✅ Success' || '❌ Failed' }} | Generate docs with Swift-DocC |" >> $GITHUB_STEP_SUMMARY
         echo "| **Quality Check** | ${{ needs.quality-check.result == 'success' && '✅ Success' || '❌ Failed' }} | Validate documentation quality |" >> $GITHUB_STEP_SUMMARY
         
-        if [ "${{ github.ref }}" == "refs/heads/main" ] || [ "${{ github.event_name }}" == "release" ]; then
-          echo "| **Deploy to Pages** | ${{ needs.deploy-pages.result == 'success' && '✅ Success' || '❌ Failed' }} | Deploy to GitHub Pages |" >> $GITHUB_STEP_SUMMARY
+        if [ "${{ github.ref }}" == "refs/heads/main" ] || [ "${{ github.event_name }}" == "release" ] || [ "${{ github.event.inputs.deploy_to_pages }}" == "true" ]; then
+          echo "| **Deploy to Pages** | ${{ needs.deploy-pages.result == 'success' && '✅ Success' || (needs.deploy-pages.result == 'skipped' && '⏭️ Skipped' || '❌ Failed') }} | Deploy to GitHub Pages |" >> $GITHUB_STEP_SUMMARY
         fi
         
         echo "" >> $GITHUB_STEP_SUMMARY
