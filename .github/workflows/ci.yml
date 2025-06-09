@@ -535,17 +535,20 @@ jobs:
       run: |
         echo "🏗️ Building documentation with Swift-DocC..."
         
-        # Ensure output directory exists and has proper permissions
-        mkdir -p .build/documentation
-        chmod 755 .build/documentation
+        # Clean any existing documentation to avoid conflicts
+        rm -rf .build/documentation
+        rm -rf .build/plugins/Swift-DocC/outputs
         
-        # Build the documentation
+        # Build the documentation (let it use default output path first)
         swift package generate-documentation \
           --target Discogs \
           --disable-indexing \
           --transform-for-static-hosting \
-          --hosting-base-path Discogs \
-          --output-path .build/documentation
+          --hosting-base-path Discogs
+        
+        # Then copy the generated documentation to our desired location
+        mkdir -p .build/documentation
+        cp -r .build/plugins/Swift-DocC/outputs/Discogs.doccarchive .build/documentation/
         
         echo "✅ Documentation built successfully"
 
@@ -559,9 +562,15 @@ jobs:
           exit 1
         fi
         
-        # Check for essential files
-        if [ ! -f ".build/documentation/index.html" ]; then
-          echo "❌ Index.html not found"
+        # Check for doccarchive
+        if [ ! -d ".build/documentation/Discogs.doccarchive" ]; then
+          echo "❌ Discogs.doccarchive not found"
+          exit 1
+        fi
+        
+        # Check for essential HTML files in the doccarchive
+        if [ ! -f ".build/documentation/Discogs.doccarchive/index.html" ]; then
+          echo "❌ Main index.html not found in doccarchive"
           exit 1
         fi
         
