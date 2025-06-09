@@ -172,29 +172,40 @@ jobs:
 
     - name: Clean up file names for artifact upload
       run: |
-        echo "🧹 Cleaning up file names with special characters..."
+        echo "🧹 Cleaning up file and directory names with special characters..."
         
-        # Find and rename files with colons in their names
-        find docs -name "*:*" -type f | while read -r file; do
-          # Replace colons with hyphens in the filename
-          newfile=$(echo "$file" | sed 's/:/-/g')
-          if [ "$file" != "$newfile" ]; then
-            mv "$file" "$newfile"
-            echo "Renamed: $file -> $newfile"
-          fi
-        done
-        
-        # Also check for other problematic characters
-        find docs -name '*"*' -o -name '*<*' -o -name '*>*' -o -name '*|*' -o -name '*\**' -o -name '*\?*' | while read -r file; do
+        # First, rename directories with problematic characters (deepest first)
+        # We need to process directories from deepest to shallowest to avoid breaking paths
+        find docs -type d -name "*:*" -o -name '*"*' -o -name '*<*' -o -name '*>*' -o -name '*|*' -o -name '*\**' -o -name '*\?*' | \
+        awk '{print length($0), $0}' | sort -nr | cut -d' ' -f2- | while read -r dir; do
           # Replace problematic characters with safe alternatives
-          newfile=$(echo "$file" | sed 's/"/-/g; s/</-/g; s/>/-/g; s/|/-/g; s/\*/-/g; s/\?/-/g')
-          if [ "$file" != "$newfile" ]; then
-            mv "$file" "$newfile"
-            echo "Renamed: $file -> $newfile"
+          newdir=$(echo "$dir" | sed 's/:/-/g; s/"/-/g; s/</-/g; s/>/-/g; s/|/-/g; s/\*/-/g; s/\?/-/g')
+          if [ "$dir" != "$newdir" ] && [ -d "$dir" ]; then
+            mv "$dir" "$newdir"
+            echo "Renamed directory: $dir -> $newdir"
           fi
         done
         
-        echo "✅ File names cleaned up for artifact upload"
+        # Then rename any remaining files with problematic characters
+        find docs -type f \( -name "*:*" -o -name '*"*' -o -name '*<*' -o -name '*>*' -o -name '*|*' -o -name '*\**' -o -name '*\?*' \) | while read -r file; do
+          # Replace problematic characters with safe alternatives
+          newfile=$(echo "$file" | sed 's/:/-/g; s/"/-/g; s/</-/g; s/>/-/g; s/|/-/g; s/\*/-/g; s/\?/-/g')
+          if [ "$file" != "$newfile" ] && [ -f "$file" ]; then
+            mv "$file" "$newfile"
+            echo "Renamed file: $file -> $newfile"
+          fi
+        done
+        
+        # Verify no problematic characters remain
+        problematic_count=$(find docs \( -name "*:*" -o -name '*"*' -o -name '*<*' -o -name '*>*' -o -name '*|*' -o -name '*\**' -o -name '*\?*' \) | wc -l)
+        echo "Remaining files/directories with problematic characters: $problematic_count"
+        
+        if [ "$problematic_count" -gt 0 ]; then
+          echo "⚠️ Warning: Some files/directories still have problematic characters:"
+          find docs \( -name "*:*" -o -name '*"*' -o -name '*<*' -o -name '*>*' -o -name '*|*' -o -name '*\**' -o -name '*\?*' \) | head -10
+        fi
+        
+        echo "✅ File and directory names cleaned up for artifact upload"
 
     - name: Upload documentation artifacts
       uses: actions/upload-artifact@v4
