@@ -1,0 +1,52 @@
+{
+  "include": [
+    {
+      "swift-version": "5.9",
+      "container-image": "swift:5.9-jammy",
+      "test-command": "swift test --parallel --skip-test LiveAPIIntegrationTests --skip-test AuthenticationFunctionalTests --skip-test DatabaseServiceFunctionalTests --skip-test EndToEndAPIComplianceTests --skip-test FinalIntegrationTests",
+      "cache-key": "container-5.9",
+      "swift-flags": "--enable-test-discovery"
+    }
+,
+    {
+      "swift-version": "5.10",
+      "container-image": "swift:5.10-jammy",
+      "test-command": "swift test --parallel --skip-test LiveAPIIntegrationTests --skip-test AuthenticationFunctionalTests --skip-test DatabaseServiceFunctionalTests --skip-test EndToEndAPIComplianceTests --skip-test FinalIntegrationTests",
+      "cache-key": "container-5.10",
+      "swift-flags": "--enable-test-discovery"
+    }
+,
+    {
+      "swift-version": "6.0",
+      "container-image": "swift:6.0-jammy",
+      "test-command": "swift test --parallel --enable-testing --skip-test LiveAPIIntegrationTests --skip-test AuthenticationFunctionalTests --skip-test DatabaseServiceFunctionalTests --skip-test EndToEndAPIComplianceTests --skip-test FinalIntegrationTests",
+      "cache-key": "container-6.0",
+      "swift-flags": "--enable-test-discovery"
+    }
+,
+    {
+      "swift-version": "6.1",
+      "container-image": "swift:6.1-jammy",
+      "test-command": "swift test --parallel --enable-testing --skip-test LiveAPIIntegrationTests --skip-test AuthenticationFunctionalTests --skip-test DatabaseServiceFunctionalTests --skip-test EndToEndAPIComplianceTests --skip-test FinalIntegrationTests",
+      "cache-key": "container-6.1",
+      "swift-flags": "--enable-test-discovery"
+    }
+,
+    {
+      "swift-version": "nightly-next",
+      "container-image": "swiftlang/swift:nightly-main-jammy",
+      "test-command": "swift test --parallel --enable-testing --experimental-skip-non-inlinable-function-bodies-in-sources --skip-test LiveAPIIntegrationTests --skip-test AuthenticationFunctionalTests --skip-test DatabaseServiceFunctionalTests --skip-test EndToEndAPIComplianceTests --skip-test FinalIntegrationTests",
+      "cache-key": "container-nightly-next",
+      "swift-flags": "--enable-test-discovery"
+    }
+,
+    {
+      "swift-version": "nightly-main",
+      "container-image": "swiftlang/swift:nightly-main-jammy",
+      "test-command": "swift test --parallel --enable-testing --experimental-skip-non-inlinable-function-bodies-in-sources --skip-test LiveAPIIntegrationTests --skip-test AuthenticationFunctionalTests --skip-test DatabaseServiceFunctionalTests --skip-test EndToEndAPIComplianceTests --skip-test FinalIntegrationTests",
+      "cache-key": "container-nightly-main",
+      "swift-flags": "--enable-test-discovery"
+    }
+
+  ]
+}

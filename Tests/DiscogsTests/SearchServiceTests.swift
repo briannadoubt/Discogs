@@ -14,7 +14,7 @@ struct SearchServiceTests {
         let _ = SearchService(client: discogs)
         
         // Then
-        #expect(true)
+        #expect(Bool(true))
     }
     
     @Test("SearchService conforms to Sendable")

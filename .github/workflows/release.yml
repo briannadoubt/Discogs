@@ -12,7 +12,7 @@ on:
         type: string
 
 env:
-  SWIFT_VERSION: '6.1'
+  SWIFT_VERSION: '6.0'
 
 jobs:
   # ================================
@@ -263,7 +263,15 @@ jobs:
 
     - name: Notify success
       run: |
-        echo "## 🎉 Release ${{ steps.version.outputs.version }} Published Successfully!" >> $GITHUB_STEP_SUMMARY
+        # Extract version from tag or input
+        if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+          VERSION="${{ github.event.inputs.version }}"
+        else
+          VERSION="${{ github.ref_name }}"
+          VERSION="${VERSION#v}"  # Remove 'v' prefix if present
+        fi
+        
+        echo "## 🎉 Release $VERSION Published Successfully!" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "### Release Artifacts" >> $GITHUB_STEP_SUMMARY
         echo "- ✅ macOS build completed" >> $GITHUB_STEP_SUMMARY

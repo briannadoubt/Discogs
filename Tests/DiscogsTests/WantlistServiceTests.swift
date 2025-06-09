@@ -21,7 +21,7 @@ struct WantlistServiceTests {
         let _ = WantlistService(httpClient: mockClient)
         
         // Then
-        #expect(true)
+        #expect(Bool(true))
     }
     
     @Test("WantlistService initializes with client for backward compatibility")
@@ -33,7 +33,7 @@ struct WantlistServiceTests {
         let _ = WantlistService(client: discogs)
         
         // Then
-        #expect(true)
+        #expect(Bool(true))
     }
     
     @Test("WantlistService conforms to Sendable")

@@ -36,7 +36,7 @@ jobs:
   # ================================
   build-docs:
     name: Build Documentation
-    runs-on: macos-latest
+    runs-on: macos-15
     
     steps:
     - name: Checkout code
@@ -69,7 +69,8 @@ jobs:
           --disable-indexing \
           --transform-for-static-hosting \
           --hosting-base-path Discogs \
-          --output-path docs
+          --output-path docs \
+          --emit-digest
         
         echo "✅ Documentation built successfully"
 
@@ -169,6 +170,43 @@ jobs:
           echo "  ... and $(($total_files - 20)) more files"
         fi
 
+    - name: Clean up file names for artifact upload
+      run: |
+        echo "🧹 Cleaning up file and directory names with special characters..."
+        
+        # First, rename directories with problematic characters (deepest first)
+        # We need to process directories from deepest to shallowest to avoid breaking paths
+        find docs -type d -name "*:*" -o -name '*"*' -o -name '*<*' -o -name '*>*' -o -name '*|*' -o -name '*\**' -o -name '*\?*' | \
+        awk '{print length($0), $0}' | sort -nr | cut -d' ' -f2- | while read -r dir; do
+          # Replace problematic characters with safe alternatives
+          newdir=$(echo "$dir" | sed 's/:/-/g; s/"/-/g; s/</-/g; s/>/-/g; s/|/-/g; s/\*/-/g; s/\?/-/g')
+          if [ "$dir" != "$newdir" ] && [ -d "$dir" ]; then
+            mv "$dir" "$newdir"
+            echo "Renamed directory: $dir -> $newdir"
+          fi
+        done
+        
+        # Then rename any remaining files with problematic characters
+        find docs -type f \( -name "*:*" -o -name '*"*' -o -name '*<*' -o -name '*>*' -o -name '*|*' -o -name '*\**' -o -name '*\?*' \) | while read -r file; do
+          # Replace problematic characters with safe alternatives
+          newfile=$(echo "$file" | sed 's/:/-/g; s/"/-/g; s/</-/g; s/>/-/g; s/|/-/g; s/\*/-/g; s/\?/-/g')
+          if [ "$file" != "$newfile" ] && [ -f "$file" ]; then
+            mv "$file" "$newfile"
+            echo "Renamed file: $file -> $newfile"
+          fi
+        done
+        
+        # Verify no problematic characters remain
+        problematic_count=$(find docs \( -name "*:*" -o -name '*"*' -o -name '*<*' -o -name '*>*' -o -name '*|*' -o -name '*\**' -o -name '*\?*' \) | wc -l)
+        echo "Remaining files/directories with problematic characters: $problematic_count"
+        
+        if [ "$problematic_count" -gt 0 ]; then
+          echo "⚠️ Warning: Some files/directories still have problematic characters:"
+          find docs \( -name "*:*" -o -name '*"*' -o -name '*<*' -o -name '*>*' -o -name '*|*' -o -name '*\**' -o -name '*\?*' \) | head -10
+        fi
+        
+        echo "✅ File and directory names cleaned up for artifact upload"
+
     - name: Upload documentation artifacts
       uses: actions/upload-artifact@v4
       with:
@@ -197,10 +235,6 @@ jobs:
       contents: read
       pages: write
       id-token: write
-    
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     
     steps:
     - name: Setup Pages
@@ -343,7 +377,7 @@ jobs:
   # ================================
   summary:
     name: Documentation Summary
-    needs: [build-docs, quality-check]
+    needs: [build-docs, quality-check, deploy-pages]
     runs-on: ubuntu-latest
     if: always()
     
@@ -357,8 +391,8 @@ jobs:
         echo "| **Build Documentation** | ${{ needs.build-docs.result == 'success' && '✅ Success' || '❌ Failed' }} | Generate docs with Swift-DocC |" >> $GITHUB_STEP_SUMMARY
         echo "| **Quality Check** | ${{ needs.quality-check.result == 'success' && '✅ Success' || '❌ Failed' }} | Validate documentation quality |" >> $GITHUB_STEP_SUMMARY
         
-        if [ "${{ github.ref }}" == "refs/heads/main" ] || [ "${{ github.event_name }}" == "release" ]; then
-          echo "| **Deploy to Pages** | ${{ needs.deploy-pages.result == 'success' && '✅ Success' || '❌ Failed' }} | Deploy to GitHub Pages |" >> $GITHUB_STEP_SUMMARY
+        if [ "${{ github.ref }}" == "refs/heads/main" ] || [ "${{ github.event_name }}" == "release" ] || [ "${{ github.event.inputs.deploy_to_pages }}" == "true" ]; then
+          echo "| **Deploy to Pages** | ${{ needs.deploy-pages.result == 'success' && '✅ Success' || (needs.deploy-pages.result == 'skipped' && '⏭️ Skipped' || '❌ Failed') }} | Deploy to GitHub Pages |" >> $GITHUB_STEP_SUMMARY
         fi
         
         echo "" >> $GITHUB_STEP_SUMMARY

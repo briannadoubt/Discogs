@@ -14,7 +14,7 @@ struct DatabaseServiceTests {
         
         // Then
         // If initialization succeeds without throwing, the test passes
-        #expect(true)
+        #expect(Bool(true))
     }
     
     @Test("DatabaseService initializes with client for backward compatibility")
@@ -27,7 +27,7 @@ struct DatabaseServiceTests {
         
         // Then
         // If initialization succeeds without throwing, the test passes
-        #expect(true)
+        #expect(Bool(true))
     }
     
     @Test("DatabaseService conforms to Sendable")
@@ -50,7 +50,7 @@ struct DatabaseServiceTests {
         
         // When/Then - Test that service can be instantiated
         // This test verifies the service initializes without errors
-        #expect(true)
+        #expect(Bool(true))
     }
     
     @Test("getArtist endpoint validation")

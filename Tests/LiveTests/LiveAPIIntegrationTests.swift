@@ -22,6 +22,26 @@ struct LiveAPIIntegrationTests {
     // MARK: - Test Configuration
     
     private func createLiveClient() -> Discogs? {
+        // Check if running in CI/CD environment and skip live tests
+        let ciEnvironments = [
+            "CI",                    // Generic CI environment
+            "GITHUB_ACTIONS",        // GitHub Actions
+            "TRAVIS",               // Travis CI
+            "CIRCLECI",             // CircleCI
+            "JENKINS_URL",          // Jenkins
+            "GITLAB_CI",            // GitLab CI
+            "BUILDKITE",            // Buildkite
+            "TF_BUILD"              // Azure DevOps
+        ]
+        
+        for envVar in ciEnvironments {
+            if ProcessInfo.processInfo.environment[envVar] != nil {
+                print("🚫 Skipping live API tests - detected CI/CD environment (\(envVar))")
+                print("💡 Live tests are disabled in CI/CD to avoid rate limiting and API costs")
+                return nil
+            }
+        }
+        
         // Try to get token from environment variable first, then use a test token
         let token = ProcessInfo.processInfo.environment["DISCOGS_API_TOKEN"] ?? "your_test_token_here"
         

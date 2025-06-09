@@ -1,4 +1,4 @@
-// swift-tools-version: 6.1
+// swift-tools-version: 6.0
 
 import PackageDescription
 
@@ -26,7 +26,10 @@ let package = Package(
         ),
         .testTarget(
             name: "DiscogsTests",
-            dependencies: ["Discogs"]
+            dependencies: ["Discogs"],
+            resources: [
+                .copy("LIVE_TESTS_README.md")
+            ]
         ),
     ]
 )

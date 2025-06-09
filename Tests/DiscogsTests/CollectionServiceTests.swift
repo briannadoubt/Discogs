@@ -21,7 +21,7 @@ struct CollectionServiceTests {
         let _ = CollectionService(httpClient: mockClient)
         
         // Then
-        #expect(true)
+        #expect(Bool(true))
     }
     
     @Test("CollectionService initializes with client for backward compatibility")
@@ -33,7 +33,7 @@ struct CollectionServiceTests {
         let _ = CollectionService(client: discogs)
         
         // Then
-        #expect(true)
+        #expect(Bool(true))
     }
     
     @Test("CollectionService conforms to Sendable")
@@ -395,7 +395,7 @@ struct CollectionServiceTests {
             #expect(Bool(false), "Expected an error to be thrown")
         } catch {
             // Expected error thrown
-            #expect(true)
+            #expect(Bool(true))
         }
         
         let request = try #require(await mockClient.lastRequest)
