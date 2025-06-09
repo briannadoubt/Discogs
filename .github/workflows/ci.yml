@@ -199,19 +199,19 @@ jobs:
         platform: [iOS, macOS, tvOS, watchOS, visionOS]
         include:
           - platform: iOS
-            destination: 'platform=iOS Simulator,name=iPhone 15,OS=latest'
+            destination: 'platform=iOS Simulator'
             sdk: iphonesimulator
           - platform: macOS
             destination: 'platform=macOS'
             sdk: macosx
           - platform: tvOS
-            destination: 'platform=tvOS Simulator,name=Apple TV,OS=latest'
+            destination: 'platform=tvOS Simulator'
             sdk: appletvsimulator
           - platform: watchOS
-            destination: 'platform=watchOS Simulator,name=Apple Watch Series 9 (45mm),OS=latest'
+            destination: 'platform=watchOS Simulator'
             sdk: watchsimulator
           - platform: visionOS
-            destination: 'platform=visionOS Simulator,name=Apple Vision Pro,OS=latest'
+            destination: 'platform=visionOS Simulator'
             sdk: xrsimulator
     
     steps:
@@ -241,9 +241,75 @@ jobs:
           fi
         fi
         
+        # Dynamically find available simulators for each platform
+        case "${{ matrix.platform }}" in
+          iOS)
+            echo "🔍 Finding available iOS simulators..."
+            # First try to find any iPhone simulator
+            SIMULATOR_ID=$(xcrun simctl list devices available | grep "iPhone" | head -1 | grep -o '[A-Z0-9-]\{36\}')
+            if [ -n "$SIMULATOR_ID" ]; then
+              DESTINATION="platform=iOS Simulator,id=$SIMULATOR_ID"
+              echo "📱 Using iPhone simulator: $SIMULATOR_ID"
+            else
+              # Fallback to any iOS Simulator if no iPhone found
+              SIMULATOR_ID=$(xcrun simctl list devices available | grep "iOS Simulator" | head -1 | grep -o '[A-Z0-9-]\{36\}')
+              if [ -n "$SIMULATOR_ID" ]; then
+                DESTINATION="platform=iOS Simulator,id=$SIMULATOR_ID"
+                echo "📱 Using iOS simulator: $SIMULATOR_ID"
+              else
+                echo "❌ No iOS simulators available"
+                exit 1
+              fi
+            fi
+            ;;
+          tvOS)
+            echo "🔍 Finding available tvOS simulators..."
+            SIMULATOR_ID=$(xcrun simctl list devices available | grep "Apple TV" | head -1 | grep -o '[A-Z0-9-]\{36\}')
+            if [ -n "$SIMULATOR_ID" ]; then
+              DESTINATION="platform=tvOS Simulator,id=$SIMULATOR_ID"
+              echo "📺 Using Apple TV simulator: $SIMULATOR_ID"
+            else
+              echo "⚠️ No Apple TV simulators available, skipping tvOS build"
+              echo "platform_available=false" >> $GITHUB_OUTPUT
+              exit 0
+            fi
+            ;;
+          watchOS)
+            echo "🔍 Finding available watchOS simulators..."
+            SIMULATOR_ID=$(xcrun simctl list devices available | grep "Apple Watch" | head -1 | grep -o '[A-Z0-9-]\{36\}')
+            if [ -n "$SIMULATOR_ID" ]; then
+              DESTINATION="platform=watchOS Simulator,id=$SIMULATOR_ID"
+              echo "⌚ Using Apple Watch simulator: $SIMULATOR_ID"
+            else
+              echo "⚠️ No Apple Watch simulators available, skipping watchOS build"
+              echo "platform_available=false" >> $GITHUB_OUTPUT
+              exit 0
+            fi
+            ;;
+          visionOS)
+            echo "🔍 Finding available visionOS simulators..."
+            SIMULATOR_ID=$(xcrun simctl list devices available | grep "Apple Vision Pro" | head -1 | grep -o '[A-Z0-9-]\{36\}')
+            if [ -n "$SIMULATOR_ID" ]; then
+              DESTINATION="platform=visionOS Simulator,id=$SIMULATOR_ID"
+              echo "🥽 Using Apple Vision Pro simulator: $SIMULATOR_ID"
+            else
+              echo "⚠️ No Apple Vision Pro simulators available, skipping visionOS build"
+              echo "platform_available=false" >> $GITHUB_OUTPUT
+              exit 0
+            fi
+            ;;
+          *)
+            # For macOS and other platforms, use the original destination
+            DESTINATION="${{ matrix.destination }}"
+            echo "🖥️ Using destination: $DESTINATION"
+            ;;
+        esac
+        
+        echo "🎯 Final destination: $DESTINATION"
+        
         # Use xcodebuild directly with Swift Package Manager
         if xcodebuild -scheme Discogs \
-          -destination "${{ matrix.destination }}" \
+          -destination "$DESTINATION" \
           -sdk ${{ matrix.sdk }} \
           -configuration Debug \
           build; then
@@ -251,8 +317,8 @@ jobs:
           echo "platform_available=true" >> $GITHUB_OUTPUT
         else
           echo "❌ ${{ matrix.platform }} build failed"
-          if [ "${{ matrix.platform }}" == "visionOS" ]; then
-            echo "⚠️ This might be expected if visionOS SDK is not available"
+          if [ "${{ matrix.platform }}" == "visionOS" ] || [ "${{ matrix.platform }}" == "tvOS" ] || [ "${{ matrix.platform }}" == "watchOS" ]; then
+            echo "⚠️ This might be expected if ${{ matrix.platform }} SDK is not available"
             echo "platform_available=false" >> $GITHUB_OUTPUT
             exit 0
           else
