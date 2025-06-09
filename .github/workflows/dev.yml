@@ -1,0 +1,175 @@
+name: Development Workflow
+
+on:
+  workflow_dispatch:
+    inputs:
+      test_suite:
+        description: 'Test Suite to Run'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+        - all
+        - unit
+        - integration
+        - live
+        - performance
+      build_mode:
+        description: 'Build Configuration'
+        required: true
+        default: 'debug'
+        type: choice
+        options:
+        - debug
+        - release
+      platforms:
+        description: 'Platforms to Test'
+        required: true
+        default: 'macOS'
+        type: choice
+        options:
+        - macOS
+        - iOS
+        - all
+
+env:
+  SWIFT_VERSION: '6.1'
+
+jobs:
+  # ================================
+  # Quick Development Build
+  # ================================
+  dev-build:
+    name: Quick Development Build
+    runs-on: macos-15
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4.2.2
+
+    - name: Setup Swift
+      uses: swift-actions/setup-swift@v2.3.0
+      with:
+        swift-version: ${{ env.SWIFT_VERSION }}
+
+    - name: Quick build check
+      run: |
+        echo "🚀 Running quick development build..."
+        echo "Configuration: ${{ inputs.build_mode }}"
+        echo "Test Suite: ${{ inputs.test_suite }}"
+        echo "Platforms: ${{ inputs.platforms }}"
+        
+        # Quick syntax check
+        swift build --configuration ${{ inputs.build_mode }}
+
+    - name: Run selected tests
+      run: |
+        case "${{ inputs.test_suite }}" in
+          "unit")
+            echo "🧪 Running unit tests only..."
+            swift test --parallel --skip LiveAPIIntegrationTests --skip FinalIntegrationTests
+            ;;
+          "integration")
+            echo "🔗 Running integration tests..."
+            swift test --filter "IntegrationTests"
+            ;;
+          "live")
+            echo "🌐 Running live API tests..."
+            if [ -n "${{ secrets.DISCOGS_API_TOKEN }}" ]; then
+              DISCOGS_API_TOKEN="${{ secrets.DISCOGS_API_TOKEN }}" swift test --filter "LiveAPIIntegrationTests"
+            else
+              echo "⚠️ No API token available for live tests"
+            fi
+            ;;
+          "performance")
+            echo "⚡ Running performance tests..."
+            swift test --configuration release --filter "Performance"
+            ;;
+          "all")
+            echo "🎯 Running all tests (excluding live)..."
+            swift test --parallel --skip LiveAPIIntegrationTests
+            ;;
+        esac
+
+    - name: Platform-specific builds
+      if: inputs.platforms != 'macOS'
+      run: |
+        if [ "${{ inputs.platforms }}" == "iOS" ] || [ "${{ inputs.platforms }}" == "all" ]; then
+          echo "📱 Building for iOS..."
+          xcodebuild -scheme Discogs \
+            -destination 'platform=iOS Simulator,name=iPhone 15,OS=latest' \
+            -sdk iphonesimulator \
+            -configuration ${{ inputs.build_mode }} \
+            build
+        fi
+        
+        if [ "${{ inputs.platforms }}" == "all" ]; then
+          echo "📺 Building for tvOS..."
+          xcodebuild -scheme Discogs \
+            -destination 'platform=tvOS Simulator,name=Apple TV,OS=latest' \
+            -sdk appletvsimulator \
+            -configuration ${{ inputs.build_mode }} \
+            build
+            
+          echo "⌚ Building for watchOS..."
+          xcodebuild -scheme Discogs \
+            -destination 'platform=watchOS Simulator,name=Apple Watch Series 9 (45mm),OS=latest' \
+            -sdk watchsimulator \
+            -configuration ${{ inputs.build_mode }} \
+            build
+        fi
+
+    - name: Development summary
+      run: |
+        echo "## 🛠️ Development Build Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Configuration**: ${{ inputs.build_mode }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Test Suite**: ${{ inputs.test_suite }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Platforms**: ${{ inputs.platforms }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "✅ Development workflow completed successfully!" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "💡 **Next Steps**:" >> $GITHUB_STEP_SUMMARY
+        echo "- Review any test failures above" >> $GITHUB_STEP_SUMMARY
+        echo "- Run full CI pipeline for comprehensive validation" >> $GITHUB_STEP_SUMMARY
+        echo "- Consider adding performance tests if working on optimization" >> $GITHUB_STEP_SUMMARY
+
+  # ================================
+  # Code Analysis
+  # ================================
+  dev-analysis:
+    name: Development Code Analysis
+    runs-on: macos-15
+    if: inputs.test_suite == 'all'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4.2.2
+
+    - name: Setup Swift
+      uses: swift-actions/setup-swift@v2.3.0
+      with:
+        swift-version: ${{ env.SWIFT_VERSION }}
+
+    - name: Code statistics
+      run: |
+        echo "📊 Code Statistics:"
+        echo "Swift files: $(find Sources -name "*.swift" | wc -l)"
+        echo "Test files: $(find Tests -name "*.swift" | wc -l)"
+        echo "Lines of code: $(find Sources -name "*.swift" -exec wc -l {} + | tail -1 | awk '{print $1}')"
+        echo "Lines of tests: $(find Tests -name "*.swift" -exec wc -l {} + | tail -1 | awk '{print $1}')"
+
+    - name: Dependency analysis
+      run: |
+        echo "📦 Dependency Analysis:"
+        swift package show-dependencies --format json | jq '.dependencies[] | {name: .name, url: .url}'
+
+    - name: Build warnings check
+      run: |
+        echo "⚠️ Checking for build warnings..."
+        swift build 2>&1 | tee build.log
+        if grep -i "warning" build.log; then
+          echo "Found warnings - consider addressing them"
+        else
+          echo "No warnings found - great job! ✨"
+        fi
