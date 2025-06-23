@@ -140,7 +140,7 @@ public struct DatabaseService: DiscogsServiceProtocol {
 
     /// Get a label by ID
     /// - Parameter id: Label ID
-    public func getLabel(id: Int) async throws -> Label {
+    public func getLabel(id: Int) async throws -> RecordLabel {
         try await performRequest(endpoint: "labels/\(id)")
     }
 

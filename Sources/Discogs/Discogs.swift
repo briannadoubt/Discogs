@@ -9,6 +9,9 @@ public actor Discogs: HTTPClientProtocol {
     /// The base URL for the Discogs API
     public let baseURL = URL(string: "https://api.discogs.com")!
     
+    /// Default user agent string if none is specified
+    public static let defaultUserAgent: String = "DiscogsSwift/1.0"
+    
     /// User-Agent header value required by Discogs API
     public let userAgent: String
     
@@ -34,8 +37,12 @@ public actor Discogs: HTTPClientProtocol {
     /// - Parameters:
     ///   - token: Your personal access token from Discogs
     ///   - userAgent: User agent string that identifies your application (required by Discogs)
-    ///   - rateLimitConfig: Configuration for rate limiting behavior (optional)
-    public init(token: String, userAgent: String, rateLimitConfig: RateLimitConfig = .default) {
+    ///   - rateLimitConfig: Configuration for rate limiting behavior
+    public init(
+        token: String,
+        userAgent: String = Discogs.defaultUserAgent,
+        rateLimitConfig: RateLimitConfig = .default
+    ) {
         self.authMethod = .token(token)
         self.userAgent = userAgent
         self.rateLimitConfig = rateLimitConfig
@@ -48,8 +55,15 @@ public actor Discogs: HTTPClientProtocol {
     ///   - accessToken: OAuth access token
     ///   - accessTokenSecret: OAuth access token secret
     ///   - userAgent: User agent string that identifies your application (required by Discogs)
-    ///   - rateLimitConfig: Configuration for rate limiting behavior (optional)
-    public init(consumerKey: String, consumerSecret: String, accessToken: String, accessTokenSecret: String, userAgent: String, rateLimitConfig: RateLimitConfig = .default) {
+    ///   - rateLimitConfig: Configuration for rate limiting behavior
+    public init(
+        consumerKey: String,
+        consumerSecret: String,
+        accessToken: String,
+        accessTokenSecret: String,
+        userAgent: String = Discogs.defaultUserAgent,
+        rateLimitConfig: RateLimitConfig = .default
+    ) {
         self.authMethod = .oauth(
             consumerKey: consumerKey,
             consumerSecret: consumerSecret,
@@ -79,7 +93,3 @@ public actor Discogs: HTTPClientProtocol {
     /// Service for searching the Discogs database
     public lazy var search: SearchService = SearchService(httpClient: self)
 }
-
-
-
-

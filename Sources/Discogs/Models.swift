@@ -116,7 +116,7 @@ public struct Artist: Codable, Sendable {
     public let dataQuality: String?
     
     /// Images associated with this artist
-    public let images: [Image]?
+    public let images: [DiscogsImage]?
 
     /// URLs to the artist's resources
     public let resourceUrl: String?
@@ -132,6 +132,55 @@ public struct Artist: Codable, Sendable {
     
     /// Members of the artist group
     public let members: [ArtistMember]?
+    
+    public static let preview = Artist(
+        id: 42,
+        name: "Radiohead",
+        realName: "Radiohead Band",
+        urls: [
+            "https://www.discogs.com/artist/3840-Radiohead", "https://www.radiohead.com/"
+        ],
+        namevariations: [
+            "On a Friday", "The Headless Thom Yorke"
+        ],
+        profile: "Radiohead are an English rock band formed in Abingdon, Oxfordshire, in 1985.",
+        dataQuality: "High",
+        images: [
+            DiscogsImage(
+                type: "primary",
+                uri: "https://i.discogs.com/artist.jpg",
+                resourceUrl: nil,
+                uri150: nil,
+                width: 300,
+                height: 300
+            )
+        ],
+        resourceUrl: "https://api.discogs.com/artists/3840",
+        uri: "https://www.discogs.com/artist/3840-Radiohead",
+        releasesUrl: "https://api.discogs.com/artists/3840/releases",
+        aliases: [
+            ArtistAlias(
+                id: 100,
+                name: "RH",
+                resourceUrl: "",
+                active: true
+            )
+        ],
+        members: [
+            ArtistMember(
+                id: 1,
+                name: "Thom Yorke",
+                resourceUrl: "",
+                active: true
+            ),
+            ArtistMember(
+                id: 2,
+                name: "Jonny Greenwood",
+                resourceUrl: "",
+                active: true
+            )
+        ]
+    )
     
     enum CodingKeys: String, CodingKey {
         case id
@@ -151,7 +200,7 @@ public struct Artist: Codable, Sendable {
 }
 
 /// An alias for an artist
-public struct ArtistAlias: Codable, Sendable {
+public struct ArtistAlias: Codable, Sendable, Identifiable {
     /// The unique identifier for this alias
     public let id: Int
     
@@ -234,6 +283,26 @@ public struct Release: Codable, Sendable {
     /// Statistics for this release
     public let stats: ReleaseStats?
     
+    public static let preview = Release(
+        id: 1,
+        title: "Sample Release",
+        status: "Released",
+        masterId: 10,
+        year: 2005,
+        format: "CD",
+        label: "XL",
+        artist: "Sample Artist",
+        resourceUrl: nil,
+        uri: nil,
+        catno: "XL-100",
+        stats: ReleaseStats(
+            community: ReleaseCommunityStats(
+                want: 50,
+                have: 120
+            )
+        )
+    )
+    
     enum CodingKeys: String, CodingKey {
         case id
         case title
@@ -308,6 +377,55 @@ public struct ReleaseDetails: Codable, Sendable {
     
     /// The labels that issued this release
     public let labels: [ReleaseLabel]?
+    
+    public static let preview = ReleaseDetails(
+        id: 1,
+        title: "Detail Release",
+        country: "US",
+        year: 2005,
+        releasedFormatted: "2005-01-01",
+        notes: "Great album.",
+        styles: ["Rock"],
+        genres: ["Alternative"],
+        estimatedWeight: nil,
+        formats: [
+            ReleaseFormat(
+                name: "Vinyl",
+                qty: "2",
+                text: nil,
+                descriptions: ["LP"]
+            )
+        ],
+        masterId: 10,
+        artists: [
+            ReleaseArtist(
+                id: 1,
+                name: "Thom Yorke",
+                role: "Vocal",
+                join: nil,
+                resourceUrl: nil,
+                anv: nil,
+                tracks: nil
+            )
+        ],
+        dataQuality: "High",
+        community: ReleaseCommunityInfo(
+            status: "Active",
+            rating: ReleaseRatingInfo(
+                average: 4.8,
+                count: 55
+            ),
+            want: 25,
+            have: 80,
+            contributors: nil,
+            dataQuality: "High"
+        ),
+        companies: nil,
+        dateAdded: nil,
+        dateChanged: nil,
+        tracklist: nil,
+        labels: nil
+    )
     
     enum CodingKeys: String, CodingKey {
         case id
@@ -577,7 +695,7 @@ public struct MasterRelease: Codable, Sendable {
     public let genres: [String]?
     
     /// Images associated with this master release
-    public let images: [Image]?
+    public let images: [DiscogsImage]?
     
     /// Videos associated with this master release
     public let videos: [Video]?
@@ -683,7 +801,7 @@ public struct ReleaseVersion: Codable, Sendable {
 // MARK: - Label
 
 /// A label in the Discogs database
-public struct Label: Codable, Sendable {
+public struct RecordLabel: Codable, Sendable {
     /// The unique identifier for this label
     public let id: Int
     
@@ -706,7 +824,7 @@ public struct Label: Codable, Sendable {
     public let urls: [String]?
     
     /// Images for this label
-    public let images: [Image]?
+    public let images: [DiscogsImage]?
     
     /// Resource URL for this label
     public let resourceUrl: String?
@@ -757,7 +875,7 @@ public struct Sublabel: Codable, Sendable {
 // MARK: - Common
 
 /// An image in the Discogs database
-public struct Image: Codable, Sendable {
+public struct DiscogsImage: Codable, Sendable {
     /// The type of image
     public let type: String?
     
@@ -802,4 +920,13 @@ public struct Video: Codable, Sendable {
     
     /// Whether the video is embeddable
     public let embed: Bool?
+    
+    public static let preview = Video(
+        uri: "https://www.w3schools.com/html/mov_bbb.mp4",
+        title: "Sample Video",
+        description: "A demonstration video.",
+        duration: 120,
+        embed: true
+    )
 }
+
