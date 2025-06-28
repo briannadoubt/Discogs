@@ -115,7 +115,7 @@ extension SearchService {
 // MARK: - Search Result Model
 
 /// A result from a Discogs database search
-public struct SearchResult: Codable, Sendable { // Added Sendable
+public struct SearchResult: Codable, Sendable, Identifiable { // Added Sendable
     /// The ID of the result
     public let id: Int
     
