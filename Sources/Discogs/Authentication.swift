@@ -359,25 +359,32 @@ public class Authentication {
     /// - Parameters:
     ///   - data: The data to sign
     ///   - key: The signing key
-    /// - Returns: The base64-encoded signature without padding
+    /// - Returns: The base64-encoded signature (padding intact, per RFC 5849)
+    ///
+    /// Previous revisions of this method stripped trailing `=` padding from the
+    /// base64 output. That produces an unpadded base64 string whose length
+    /// isn't a multiple of 4, which strict base64 decoders (Discogs's
+    /// server-side OAuth verifier included) reject. The OAuth 1.0a spec
+    /// (RFC 5849 §3.4.2) requires the signature value to be the standard
+    /// base64 encoding of the HMAC-SHA1 octets, padding included.
     private func hmacSHA1(data: String, key: String) -> String {
         #if canImport(CryptoKit)
         // Use CryptoKit on platforms where it's available (iOS 13+, macOS 10.15+, etc.)
         let keyData = SymmetricKey(data: key.data(using: .utf8)!)
         let dataData = data.data(using: .utf8)!
-        
+
         let signature = HMAC<Insecure.SHA1>.authenticationCode(for: dataData, using: keyData)
-        return Data(signature).base64EncodedString().trimmingCharacters(in: CharacterSet(charactersIn: "="))
+        return Data(signature).base64EncodedString()
         #elseif canImport(CommonCrypto)
         // Use CommonCrypto on older Apple platforms
         let keyData = key.data(using: .utf8)!
         let dataData = data.data(using: .utf8)!
-        
+
         var result = [UInt8](repeating: 0, count: Int(CC_SHA1_DIGEST_LENGTH))
         CCHmac(CCHmacAlgorithm(kCCHmacAlgSHA1), keyData.withUnsafeBytes { $0.baseAddress }, keyData.count, dataData.withUnsafeBytes { $0.baseAddress }, dataData.count, &result)
-        
+
         let hmacData = Data(result)
-        return hmacData.base64EncodedString().trimmingCharacters(in: CharacterSet(charactersIn: "="))
+        return hmacData.base64EncodedString()
         #else
         // Fallback implementation for Linux and other platforms
         return linuxHmacSHA1(data: data, key: key)
@@ -414,7 +421,7 @@ public class Authentication {
         let innerHash = sha1(innerPad + dataData)
         let finalHash = sha1(outerPad + Array(innerHash))
         
-        return Data(finalHash).base64EncodedString().trimmingCharacters(in: CharacterSet(charactersIn: "="))
+        return Data(finalHash).base64EncodedString()
     }
     
     /// Pure Swift SHA-1 implementation for Linux compatibility
