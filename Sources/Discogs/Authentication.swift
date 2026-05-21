@@ -518,11 +518,16 @@ public class Authentication {
 }
 
 /// Character set for RFC 3986 unreserved characters
-/// 
-/// Contains characters that do not need to be percent-encoded in OAuth signatures:
-/// A-Z, a-z, 0-9, hyphen, period, underscore, tilde, and forward slash.
+///
+/// Per RFC 3986 §2.3 — which OAuth 1.0a §3.6 (RFC 5849) inherits verbatim —
+/// the unreserved set is **A–Z a–z 0–9 hyphen period underscore tilde**.
+/// Earlier revisions of this file included a forward slash in this set, but
+/// that is incorrect: `/` is a *reserved* (sub-delimiter / path) character,
+/// not unreserved. Leaving `/` unencoded in the signature base string
+/// produces a different HMAC than what Discogs computes server-side, so
+/// every OAuth-authenticated request fails with HTTP 401.
 extension CharacterSet {
-    static let unreservedRFC3986 = CharacterSet(charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~/")
+    static let unreservedRFC3986 = CharacterSet(charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~")
 }
 
 /// OAuth token response from Discogs API
