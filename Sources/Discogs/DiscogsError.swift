@@ -17,8 +17,13 @@ public enum DiscogsError: Error, Sendable {
     case invalidResponse
     
     /// The server returned an HTTP error status code
-    /// - Parameter Int: The HTTP status code returned by the server
-    case httpError(Int)
+    /// - Parameters:
+    ///   - Int: The HTTP status code returned by the server.
+    ///   - String: The server's response body (decoded as UTF-8), if any.
+    ///     Discogs frequently puts a JSON `message` field here explaining
+    ///     what's wrong, which is the only way to distinguish, say, "instance
+    ///     not found in that folder" from a generic internal error.
+    case httpError(Int, String)
     
     /// No data was returned from the server when data was expected
     case noData
@@ -57,8 +62,8 @@ extension DiscogsError: Equatable {
              (.rateLimitExceeded, .rateLimitExceeded),
              (.authenticationError, .authenticationError):
             return true
-        case (.httpError(let lhsCode), .httpError(let rhsCode)):
-            return lhsCode == rhsCode
+        case (.httpError(let lhsCode, let lhsBody), .httpError(let rhsCode, let rhsBody)):
+            return lhsCode == rhsCode && lhsBody == rhsBody
         case (.custom(let lhsMessage), .custom(let rhsMessage)):
             return lhsMessage == rhsMessage
         case (.networkError(let lhsError), .networkError(let rhsError)):

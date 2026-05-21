@@ -193,7 +193,8 @@ extension Discogs {
         
         // Handle other error status codes
         guard (200...299).contains(statusCode) else {
-            throw DiscogsError.httpError(statusCode)
+            let body = String(data: data, encoding: .utf8) ?? ""
+            throw DiscogsError.httpError(statusCode, body)
         }
         
         // Attempt to decode the response
