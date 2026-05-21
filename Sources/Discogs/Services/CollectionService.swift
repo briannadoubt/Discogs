@@ -147,6 +147,24 @@ public struct CollectionService: DiscogsServiceProtocol {
         try await performRequest(endpoint: "users/\(username)/collection/releases/\(releaseId)")
     }
 
+    /// List every collection instance of a given release across all folders.
+    ///
+    /// This hits `/users/{username}/collection/releases/{release_id}` and
+    /// decodes the full `releases` array. Each row carries its own
+    /// `folder_id`, which is the authoritative answer to "where exactly is
+    /// this instance?" — the value `removeReleaseFromFolder` needs.
+    /// - Parameters:
+    ///   - username: The username
+    ///   - releaseId: The release ID
+    public func getInstancesForRelease(
+        username: String,
+        releaseId: Int
+    ) async throws -> CollectionReleaseInstances {
+        try await performRequest(
+            endpoint: "users/\(username)/collection/releases/\(releaseId)"
+        )
+    }
+
     // MARK: - Collection Field Values
 
     /// Get the user's custom collection fields
@@ -373,6 +391,64 @@ public struct CollectionItemInstance: Codable, Sendable {
         case folderId = "folder_id"
         case dateAdded = "date_added"
         case notes
+    }
+}
+
+/// Response from `/users/{username}/collection/releases/{release_id}` listing
+/// every instance of a release across the user's folders.
+public struct CollectionReleaseInstances: Codable, Sendable {
+    /// Pagination metadata. Optional because the endpoint omits it when the
+    /// user has no instances of the release.
+    public let pagination: Pagination?
+
+    /// One row per (folder, instance) the user has for this release.
+    public let releases: [CollectionReleaseRow]
+
+    public init(pagination: Pagination? = nil, releases: [CollectionReleaseRow] = []) {
+        self.pagination = pagination
+        self.releases = releases
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.pagination = try container.decodeIfPresent(Pagination.self, forKey: .pagination)
+        self.releases = try container.decodeIfPresent([CollectionReleaseRow].self, forKey: .releases) ?? []
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case pagination
+        case releases
+    }
+}
+
+/// A single (folder, instance) row inside `CollectionReleaseInstances`.
+public struct CollectionReleaseRow: Codable, Sendable {
+    /// The instance ID — required by the DELETE endpoint.
+    public let instanceId: Int
+
+    /// The folder this instance lives in. Combined with `instanceId` this is
+    /// the authoritative "where does this instance live" answer.
+    public let folderId: Int
+
+    /// The release ID, for convenience.
+    public let id: Int?
+
+    /// The user's rating for this instance (0 if unrated).
+    public let rating: Int?
+
+    /// ISO-8601 timestamp the instance was added to the collection.
+    public let dateAdded: String?
+
+    /// Basic release info Discogs echoes back, when available.
+    public let basicInformation: ReleaseBasicInfo?
+
+    enum CodingKeys: String, CodingKey {
+        case instanceId = "instance_id"
+        case folderId = "folder_id"
+        case id
+        case rating
+        case dateAdded = "date_added"
+        case basicInformation = "basic_information"
     }
 }
 

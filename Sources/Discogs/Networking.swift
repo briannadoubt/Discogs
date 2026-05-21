@@ -196,12 +196,24 @@ extension Discogs {
             let body = String(data: data, encoding: .utf8) ?? ""
             throw DiscogsError.httpError(statusCode, body)
         }
-        
+
+        // Some Discogs endpoints (notably DELETE on collection instances) reply
+        // with `204 No Content` and an empty body on success. JSONDecoder can't
+        // turn that into anything, so synthesize a `{}` payload and let the
+        // target type's decoder fall back to defaults. Models that legitimately
+        // need fields will still fail decoding here.
+        let payload: Data
+        if statusCode == 204 || data.isEmpty {
+            payload = Data("{}".utf8)
+        } else {
+            payload = data
+        }
+
         // Attempt to decode the response
         do {
             let decoder = JSONDecoder()
             // Don't apply convertFromSnakeCase since models have explicit CodingKeys mappings
-            let result = try decoder.decode(T.self, from: data)
+            let result = try decoder.decode(T.self, from: payload)
             return result
         } catch {
             throw DiscogsError.decodingError(error)

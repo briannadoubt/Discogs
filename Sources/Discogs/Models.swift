@@ -85,9 +85,25 @@ public struct PaginatedResponse<T: Codable & Sendable>: Codable, Sendable {
 }
 
 /// A simple success response
+///
+/// Discogs replies to most delete-style endpoints with `204 No Content` and an
+/// empty body, so `message` is optional and defaults to `nil` when absent.
 public struct SuccessResponse: Codable, Sendable {
-    /// The success message
-    public let message: String
+    /// The success message, when Discogs provided one
+    public let message: String?
+
+    public init(message: String? = nil) {
+        self.message = message
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.message = try container.decodeIfPresent(String.self, forKey: .message)
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case message
+    }
 }
 
 // MARK: - Artist
