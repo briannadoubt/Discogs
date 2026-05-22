@@ -322,15 +322,47 @@ public struct MarketplaceService: DiscogsServiceProtocol { // Changed to struct,
         )
     }
     
-    /// Get marketplace statistics for a release
-    /// - Parameters:
-    ///   - releaseId: The ID of the release
-    /// - Returns: A `ReleaseStats` object.
-    /// - Throws: A `DiscogsError` if the request fails.
+    /// Get marketplace statistics for a release.
+    ///
+    /// **Deprecated:** the return type `ReleaseStats` is a community-stats
+    /// shape (`{community: {...}}`), not the actual `marketplace/stats`
+    /// response shape (`{lowest_price, num_for_sale, blocked_from_sale}`).
+    /// Decoding silently produces an all-nil struct. Use
+    /// ``getMarketplaceStats(releaseId:currency:)`` instead.
+    @available(*, deprecated, renamed: "getMarketplaceStats(releaseId:currency:)",
+                message: "Use getMarketplaceStats which returns the correct ReleaseStatistics shape.")
     public func getReleaseStats(releaseId: Int) async throws -> ReleaseStats {
         try await performRequest(
             endpoint: "marketplace/stats/\(releaseId)"
         )
+    }
+
+    /// Get live marketplace statistics for a release: cheapest current
+    /// listing, number of items currently for sale, and (when present)
+    /// the last sold price.
+    ///
+    /// Unlike `getPriceSuggestions`, this endpoint does **not** require
+    /// the authenticated user to have completed seller setup. That makes
+    /// it the right primary source for collector apps that just want to
+    /// surface market value.
+    /// - Parameters:
+    ///   - releaseId: The ID of the release
+    ///   - currency: Optional ISO currency code (e.g. `"USD"`, `"EUR"`).
+    ///     When omitted, Discogs returns prices in the user's account
+    ///     default currency.
+    /// - Returns: A `ReleaseStatistics` carrying `lowestPrice`,
+    ///   `numForSale`, and optional `lastSoldPrice` / `numSold`.
+    public func getMarketplaceStats(
+        releaseId: Int,
+        currency: String? = nil
+    ) async throws -> ReleaseStatistics {
+        var parameters: [String: String] = [:]
+        if let currency = currency {
+            parameters["curr_abbr"] = currency
+        }
+        return try await performRequest(
+            endpoint: "marketplace/stats/\(releaseId)",
+            parameters: parameters)
     }
 }
 
@@ -952,23 +984,28 @@ public struct PriceSuggestion: Codable, Sendable { // Added Sendable
 
 /// Release statistics from the marketplace
 public struct ReleaseStatistics: Codable, Sendable { // Added Sendable
-    /// The number of items for sale
+    /// The number of items currently for sale.
     public let numForSale: Int
-    
-    /// The lowest price
+
+    /// The lowest current asking price across all live listings.
     public let lowestPrice: Price?
-    
+
     /// The number of items sold in the past
     public let numSold: Int?
-    
+
     /// The last sold price
     public let lastSoldPrice: Price?
-    
+
+    /// `true` when Discogs has blocked this release from sale (typically
+    /// for legal / copyright reasons). Live listings won't appear.
+    public let blockedFromSale: Bool?
+
     /// Coding keys used for decoding
     private enum CodingKeys: String, CodingKey {
         case numForSale = "num_for_sale"
         case lowestPrice = "lowest_price"
         case numSold = "num_sold"
         case lastSoldPrice = "last_sold_price"
+        case blockedFromSale = "blocked_from_sale"
     }
 }
