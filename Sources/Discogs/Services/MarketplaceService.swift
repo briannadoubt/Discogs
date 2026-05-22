@@ -863,16 +863,82 @@ public struct OrderMessage: Codable, Sendable { // Added Sendable
     public let status: String?
 }
 
-/// Price suggestions for a release
-public struct PriceSuggestions: Codable, Sendable { // Added Sendable
-    /// The median price
-    public let median: Price?
-    
-    /// The minimum price
-    public let minimum: Price?
-    
-    /// The maximum price
-    public let maximum: Price?
+/// Price suggestions for a release.
+///
+/// Discogs's `GET /marketplace/price_suggestions/{release_id}` returns an
+/// object keyed by **condition string** — `"Mint (M)"`,
+/// `"Near Mint (NM or M-)"`, `"Very Good Plus (VG+)"`, etc. — each value
+/// `{currency, value}`. Previous revisions of this struct decoded it as
+/// `{median, minimum, maximum}`, which silently produced an all-nil
+/// struct and every client-side valuation came back $0.
+///
+/// We now decode the real shape into `byCondition` and derive
+/// `low` / `median` / `high` from it:
+///   • `low`    = cheapest condition the server returned
+///   • `high`   = priciest condition the server returned
+///   • `median` = "Near Mint (NM or M-)" if present (the value Discogs
+///                surfaces by default on the website), otherwise the
+///                middle entry of the returned set
+public struct PriceSuggestions: Codable, Sendable {
+    /// Every (condition → price) pair the server returned. Key is the
+    /// condition string exactly as Discogs spells it; value carries the
+    /// price in its native currency.
+    public let byCondition: [String: Price]
+
+    /// Convenience: the Near-Mint value, since that's the one most apps
+    /// (and the Discogs website) treat as "the median".
+    public var median: Price? {
+        nearMint ?? middleEntry
+    }
+
+    /// Cheapest condition returned by the server.
+    public var minimum: Price? {
+        sortedByPrice.first?.value
+    }
+
+    /// Priciest condition returned by the server.
+    public var maximum: Price? {
+        sortedByPrice.last?.value
+    }
+
+    /// The Near-Mint reading, if present.
+    public var nearMint: Price? {
+        byCondition["Near Mint (NM or M-)"]
+    }
+
+    /// (condition, price) sorted cheapest→priciest, useful when callers
+    /// want to draw a per-condition price ladder.
+    public var sortedByPrice: [(condition: String, value: Price)] {
+        byCondition
+            .map { ($0.key, $0.value) }
+            .sorted { $0.1.value < $1.1.value }
+    }
+
+    private var middleEntry: Price? {
+        let sorted = sortedByPrice
+        guard !sorted.isEmpty else { return nil }
+        return sorted[sorted.count / 2].value
+    }
+
+    // MARK: - Codable
+
+    public init(byCondition: [String: Price]) {
+        self.byCondition = byCondition
+    }
+
+    public init(from decoder: Decoder) throws {
+        // The response uses arbitrary condition strings as top-level keys,
+        // so we decode into a dictionary directly. Entries whose `value`
+        // can't be decoded are skipped rather than failing the whole call.
+        let container = try decoder.singleValueContainer()
+        let raw = try container.decode([String: Price].self)
+        self.byCondition = raw
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(byCondition)
+    }
 }
 
 /// A price suggestion for a specific condition
